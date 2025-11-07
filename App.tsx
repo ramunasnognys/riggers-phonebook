@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { List, arrayMove } from 'react-movable';
 import { Personnel, Team, TeamInfo } from './types';
 import { MOCK_PERSONNEL, MOCK_TEAM_INFO } from './constants';
 import { AddPersonnelModal } from './components/AddPersonnelModal';
 import { EditPersonnelModal } from './components/EditPersonnelModal';
 import { CreateTeamModal } from './components/CreateTeamModal';
-import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon, TrashIcon } from './components/Icons';
+import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon, TrashIcon, DotsVerticalIcon } from './components/Icons';
 
 // LocalStorage keys
 const STORAGE_KEYS = {
@@ -55,14 +54,24 @@ const mobileStyles = `
 
 const getRoleName = (person: Personnel): string => {
     if (person.helmetColor === 'blue') return `${person.discipline} Foreman`;
-    if (person.helmetColor === 'green') return 'Safety';
     return person.discipline;
 };
 
-const HelmetIndicator: React.FC<{ color: 'white' | 'green' | 'blue' }> = ({ color }) => {
+const getDisciplineColor = (discipline: string): string => {
+    const colorMap: Record<string, string> = {
+        'Rigger': 'bg-slate-600/70',
+        'Scaffolder': 'bg-purple-800/70',
+        'Pipefitter': 'bg-amber-700/70',
+        'Flagman': 'bg-yellow-700/70',
+        'Rope Access': 'bg-cyan-700/70',
+        'Driver': 'bg-emerald-700/70',
+    };
+    return colorMap[discipline] || 'bg-gray-700/70';
+};
+
+const HelmetIndicator: React.FC<{ color: 'white' | 'blue' }> = ({ color }) => {
     const colorClass = {
         white: 'bg-white',
-        green: 'bg-green-500',
         blue: 'bg-blue-500',
     }[color];
     return <span className={`flex-shrink-0 w-4 h-4 rounded-full border-2 border-dark-surface ${colorClass}`} title={`${color.charAt(0).toUpperCase() + color.slice(1)} Helmet`}></span>;
@@ -73,53 +82,80 @@ const PersonnelCard: React.FC<{
     person: Personnel,
     teamName: string | null,
     onEdit: (person: Personnel) => void,
-    onDelete: (personId: number, personName: string) => void
-}> = ({ person, teamName, onEdit, onDelete }) => {
-    const roleName = getRoleName(person);
+    onDelete: (personId: number, personName: string) => void,
+    isAssigned?: boolean
+}> = ({ person, teamName, onEdit, onDelete, isAssigned = false }) => {
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement>(null);
+
+    // Close menu when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsMenuOpen(false);
+            }
+        };
+        if (isMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [isMenuOpen]);
+
     return (
-        <div className="bg-dark-card p-4 rounded-lg shadow-md flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-1">
+        <div className={`p-2 rounded-lg shadow-md relative ${isAssigned ? 'bg-blue-500/30' : 'bg-dark-card'}`}>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                     <HelmetIndicator color={person.helmetColor} />
-                    <p className="font-bold text-lg text-dark-text truncate">{person.name}</p>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-bold text-dark-text truncate">{person.name}</p>
+                    </div>
                 </div>
-                <p className="text-dark-text-secondary ml-7">{person.phone}</p>
-                <div className="flex items-center gap-2 mt-2 ml-7 flex-wrap">
-                    <span className="text-xs font-semibold bg-gray-600 text-gray-200 px-2 py-1 rounded-full">{roleName}</span>
-                    {teamName && <span className="text-xs font-semibold bg-brand-blue text-white px-2 py-1 rounded-full">{teamName}</span>}
+                <div className="flex items-center gap-1">
+                    {person.phone && (
+                        <a href={`tel:${person.phone}`} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Call ${person.name}`}>
+                            <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
+                        </a>
+                    )}
+                    <div className="relative" ref={menuRef}>
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors"
+                            aria-label={`More actions for ${person.name}`}
+                        >
+                            <DotsVerticalIcon className="w-5 h-5 text-dark-text-secondary" />
+                        </button>
+                        {isMenuOpen && (
+                            <div className="absolute right-0 mt-1 w-36 bg-dark-surface border border-gray-600 rounded-lg shadow-lg z-10">
+                                <button
+                                    onClick={() => { onEdit(person); setIsMenuOpen(false); }}
+                                    className="w-full px-4 py-2 text-left text-dark-text hover:bg-dark-card transition-colors flex items-center gap-2 rounded-t-lg"
+                                >
+                                    <PencilIcon className="w-4 h-4" />
+                                    <span>Edit</span>
+                                </button>
+                                <a
+                                    href={`sms:${person.phone}`}
+                                    className="w-full px-4 py-2 text-left text-dark-text hover:bg-dark-card transition-colors flex items-center gap-2 block"
+                                    onClick={() => setIsMenuOpen(false)}
+                                >
+                                    <MessageIcon className="w-4 h-4" />
+                                    <span>Message</span>
+                                </a>
+                                <button
+                                    onClick={() => { onDelete(person.id, person.name); setIsMenuOpen(false); }}
+                                    className="w-full px-4 py-2 text-left text-red-500 hover:bg-dark-card transition-colors flex items-center gap-2 rounded-b-lg"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                    <span>Delete</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
-            <div className="flex flex-col space-y-2 ml-2">
-                <button onClick={() => onEdit(person)} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Edit ${person.name}`}>
-                    <PencilIcon className="w-5 h-5 text-dark-text-secondary hover:text-brand-yellow" />
-                </button>
-                <button onClick={() => onDelete(person.id, person.name)} className="p-2 rounded-full bg-dark-surface hover:bg-red-900 transition-colors" aria-label={`Delete ${person.name}`}>
-                    <TrashIcon className="w-5 h-5 text-dark-text-secondary hover:text-red-500" />
-                </button>
-                <a href={`sms:${person.phone}`} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Message ${person.name}`}>
-                    <MessageIcon className="w-5 h-5 text-dark-text-secondary" />
-                </a>
-                <a href={`tel:${person.phone}`} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Call ${person.name}`}>
-                    <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
-                </a>
             </div>
         </div>
     );
 };
-
-const DraggablePersonnelItem: React.FC<{
-    member: Personnel;
-    onMove: (oldIndex: number, newIndex: number) => void;
-}> = ({ member, onMove }) => (
-    <div className="flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors">
-        <div className="flex items-center gap-2">
-            <HelmetIndicator color={member.helmetColor} />
-            <span className="truncate">{member.name}</span>
-        </div>
-        <span className="text-sm text-dark-text-secondary whitespace-nowrap ml-2">{getRoleName(member)}</span>
-    </div>
-);
-
 
 export default function App() {
     // Add mobile styles to document head
@@ -156,6 +192,7 @@ export default function App() {
     const [isFabMenuOpen, setFabMenuOpen] = useState(false);
     const [disciplineFilter, setDisciplineFilter] = useState<string>('All');
     const [helmetFilter, setHelmetFilter] = useState<string>('All');
+    const [showFilters, setShowFilters] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{type: 'person' | 'team', id: number, name: string} | null>(null);
 
     // Drag and Drop State
@@ -252,43 +289,31 @@ export default function App() {
 
     const handleCreateTeam = (name: string, memberIds: number[]) => {
         const newTeamId = Date.now();
-        const newTeamInfo: TeamInfo = { id: newTeamId, name };
+        const newTeamInfo: TeamInfo = { id: newTeamId, name, tasks: '' };
         setTeamInfo(prev => [...prev, newTeamInfo]);
         setPersonnel(prev => prev.map(p =>
             memberIds.includes(p.id) ? { ...p, teamId: newTeamId } : p
         ));
     };
 
+    const handleTasksChange = (teamId: number, tasks: string) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, tasks } : t
+        ));
+    };
+
+    const handleAssignedToChange = (teamId: number, assignedTo: string | null) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, assignedTo } : t
+        ));
+    };
+
     // Drag and Drop Handlers
-    const handleDragStart = (e: React.DragEvent, personId: number) => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('personId', personId.toString());
-        setDraggingPersonId(personId);
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-    };
-
     const handleDragEnter = (teamId: number | 'unassigned' | null) => {
         setDragOverTeamId(teamId);
     };
 
     const handleDragLeave = () => {
-        setDragOverTeamId(null);
-    };
-    
-    const handleDrop = (e: React.DragEvent, targetTeamId: number | null) => {
-        e.preventDefault();
-        const personId = parseInt(e.dataTransfer.getData('personId'), 10);
-        if (personId) {
-            setPersonnel(prev => prev.map(p => p.id === personId ? { ...p, teamId: targetTeamId } : p));
-        }
-        handleDragEnd();
-    };
-
-    const handleDragEnd = () => {
-        setDraggingPersonId(null);
         setDragOverTeamId(null);
     };
 
@@ -321,14 +346,21 @@ export default function App() {
         setEditingTeamName('');
     };;
     
-    const FilterPill: React.FC<{ value: string; activeValue: string; onClick: (value: string) => void; children: React.ReactNode }> = ({ value, activeValue, onClick, children }) => (
-        <button
-            onClick={() => onClick(value)}
-            className={`px-3 py-1 text-sm font-medium rounded-full transition-colors whitespace-nowrap flex items-center gap-2 ${activeValue === value ? 'bg-brand-blue text-white' : 'bg-dark-card text-dark-text-secondary hover:bg-gray-700'}`}
-        >
-            {children}
-        </button>
-    );
+    const FilterPill: React.FC<{ value: string; activeValue: string; onClick: (value: string) => void; children: React.ReactNode; color?: string }> = ({ value, activeValue, onClick, children, color }) => {
+        const isActive = activeValue === value;
+        const bgColor = color && !isActive ? color : (isActive ? 'bg-brand-blue' : 'bg-dark-card');
+        const textColor = color && !isActive ? 'text-white' : (isActive ? 'text-white' : 'text-dark-text-secondary');
+        const hoverColor = color && !isActive ? '' : 'hover:bg-gray-700';
+
+        return (
+            <button
+                onClick={() => onClick(value)}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-2 ${bgColor} ${textColor} ${hoverColor}`}
+            >
+                {children}
+            </button>
+        );
+    };
 
     const Fab = () => (
       <div className="fixed bottom-6 right-6 z-40">
@@ -358,27 +390,29 @@ export default function App() {
         onCancelEdit: () => void;
         onNameChange: (name: string) => void;
         onDelete: (teamId: number, teamName: string) => void;
-    }> = ({ team, onPersonMove, isEditing, editingName, onStartEdit, onSaveEdit, onCancelEdit, onNameChange, onDelete }) => {
-        const handleTeamListChange = (oldIndex: number, newIndex: number) => {
-            // This handles re-ordering within the same team
-            // For now, we'll just maintain the order since react-movable requires this callback
-        };
-
-        // Component to handle cross-team drops
+        onTasksChange: (teamId: number, tasks: string) => void;
+        onAssignedToChange: (teamId: number, assignedTo: string | null) => void;
+    }> = ({ team, onPersonMove, isEditing, editingName, onStartEdit, onSaveEdit, onCancelEdit, onNameChange, onDelete, onTasksChange, onAssignedToChange }) => {
+        const [showTasks, setShowTasks] = React.useState(false);
+        const [tasks, setTasks] = React.useState(team.tasks || '');
+        const [assignedTo, setAssignedTo] = React.useState(team.assignedTo || '');
+        const [showCustomInput, setShowCustomInput] = React.useState(false);
+        // Component to handle cross-team drops using HTML5 drag/drop
         const TeamDropZone: React.FC<{ teamId: number | null; children: React.ReactNode; className?: string }> = ({ teamId, children, className = '' }) => (
             <div
                 onDrop={(e) => {
                     e.preventDefault();
-                    const personId = draggingPersonId;
+                    const personId = parseInt(e.dataTransfer.getData('personId'), 10);
                     if (personId) {
                         onPersonMove(personId, teamId);
-                        setDraggingPersonId(null);
                     }
+                    setDraggingPersonId(null);
+                    setDragOverTeamId(null);
                 }}
                 onDragOver={(e) => e.preventDefault()}
                 onDragEnter={() => handleDragEnter(teamId)}
                 onDragLeave={handleDragLeave}
-                className={className + (dragOverTeamId === teamId ? ' outline outline-2 outline-offset-2 outline-brand-yellow drop-zone-active' : '')}
+                className={className + (dragOverTeamId === teamId ? ' drop-zone-active' : '')}
             >
                 {children}
             </div>
@@ -421,45 +455,113 @@ export default function App() {
                         </>
                     )}
                 </div>
+
+                {/* Assignment Section */}
+                <div className="mb-3">
+                    <label className="block text-xs font-medium text-dark-text-secondary mb-1">Working for:</label>
+                    <div className="flex gap-2">
+                        <select
+                            value={showCustomInput ? '__custom__' : (assignedTo || '')}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === '__custom__') {
+                                    setShowCustomInput(true);
+                                    setAssignedTo('');
+                                } else {
+                                    setShowCustomInput(false);
+                                    setAssignedTo(value);
+                                    onAssignedToChange(team.id, value || null);
+                                }
+                            }}
+                            className="flex-1 bg-dark-surface border border-gray-600 rounded px-2 py-1 text-sm text-dark-text focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                        >
+                            <option value="">Not assigned</option>
+                            {personnel.map(p => (
+                                <option key={p.id} value={p.name}>{p.name} ({p.discipline})</option>
+                            ))}
+                            <option value="__custom__">+ Custom name</option>
+                        </select>
+                    </div>
+                    {showCustomInput && (
+                        <input
+                            type="text"
+                            value={assignedTo}
+                            onChange={(e) => setAssignedTo(e.target.value)}
+                            onBlur={() => {
+                                onAssignedToChange(team.id, assignedTo || null);
+                                if (!assignedTo) setShowCustomInput(false);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    onAssignedToChange(team.id, assignedTo || null);
+                                }
+                            }}
+                            placeholder="Enter name..."
+                            className="mt-2 w-full bg-dark-surface border border-brand-yellow rounded px-2 py-1 text-sm text-dark-text focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                            autoFocus
+                        />
+                    )}
+                </div>
+
                 <TeamDropZone teamId={team.id} className="space-y-2 min-h-[2rem]">
-                    <List
-                        values={team.members}
-                        onChange={handleTeamListChange}
-                        renderList={({ children, props }) => (
-                            <div {...props} className="space-y-2">
-                                {children}
-                            </div>
-                        )}
-                        renderItem={({ value: member, index, props, isDragged }) => (
-                            <div
-                                {...props}
-                                key={member.id}
-                                className={`flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors touch-handle personnel-item ${
-                                    isDragged ? 'opacity-40 dragging-personnel' : 'opacity-100'
-                                } ${
-                                    index === 0 ? '' : 'mt-2'
-                                } ${
-                                    draggingPersonId === member.id ? 'dragging-personnel' : ''
-                                }`}
-                                onMouseDown={() => handlePersonDragStart(member.id)}
-                                onTouchStart={() => handlePersonDragStart(member.id)}
-                                style={props.style}
-                                role="button"
-                                aria-label={`Drag ${member.name}`}
-                            >
+                    <div className="space-y-2">
+                        {team.members.map((member) => {
+                            const isAssignedPerson = member.name === team.assignedTo;
+                            return (
+                                <div
+                                    key={member.id}
+                                    draggable
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData('personId', member.id.toString());
+                                        handlePersonDragStart(member.id);
+                                    }}
+                                    onDragEnd={() => {
+                                        setDraggingPersonId(null);
+                                        setDragOverTeamId(null);
+                                    }}
+                                    className={`flex justify-between items-center text-dark-text p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors ${
+                                        isAssignedPerson ? 'bg-blue-500/30' : 'bg-dark-surface'
+                                    } ${draggingPersonId === member.id ? 'opacity-40 dragging-personnel' : 'opacity-100'}`}
+                                >
                                 <div className="flex items-center">
                                     <div className="w-1 h-12 bg-gray-500 rounded-r mr-2 opacity-60"
                                          style={{ opacity: draggingPersonId === member.id ? '0.8' : '0.4' }} />
                                     <HelmetIndicator color={member.helmetColor} />
                                     <span className="truncate ml-2">{member.name}</span>
                                 </div>
-                                <a href={`tel:${member.phone}`} className="p-2 rounded-full bg-dark-card hover:bg-gray-600 transition-colors" aria-label={`Call ${member.name}`} onClick={(e) => e.stopPropagation()}>
-                                    <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
-                                </a>
+                                {member.phone && (
+                                    <a href={`tel:${member.phone}`} className="p-2 rounded-full bg-dark-card hover:bg-gray-600 transition-colors" aria-label={`Call ${member.name}`} onClick={(e) => e.stopPropagation()}>
+                                        <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
+                                    </a>
+                                )}
                             </div>
-                        )}
-                    />
+                            );
+                        })}
+                    </div>
                 </TeamDropZone>
+
+                {/* Tasks & Notes Section */}
+                <div className="mt-4 border-t border-gray-700 pt-3">
+                    <button
+                        onClick={() => setShowTasks(!showTasks)}
+                        className="w-full flex items-center justify-between text-sm text-dark-text-secondary hover:text-brand-yellow transition-colors mb-2"
+                    >
+                        <span className="font-semibold">Tasks & Notes</span>
+                        <svg className={`w-4 h-4 transition-transform ${showTasks ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    {showTasks && (
+                        <textarea
+                            value={tasks}
+                            onChange={(e) => setTasks(e.target.value)}
+                            onBlur={() => onTasksChange(team.id, tasks)}
+                            placeholder="Add notes about work tasks and locations..."
+                            className="w-full bg-dark-surface border border-gray-600 rounded-md p-2 text-dark-text text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow min-h-[80px] resize-y"
+                        />
+                    )}
+                </div>
             </div>
         );
     };
@@ -492,36 +594,50 @@ export default function App() {
                                     <SearchIcon className="w-5 h-5 text-gray-400" />
                                 </div>
                             </div>
-                            <div className="mb-4 space-y-3">
-                                <div>
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="mb-4 text-sm text-dark-text-secondary hover:text-brand-yellow transition-colors flex items-center gap-2"
+                            >
+                                <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+                                <svg className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            {showFilters && (
+                                <div className="mb-4 space-y-3">
+                                    <div>
                                     <h3 className="text-sm font-semibold text-dark-text-secondary mb-2">Discipline</h3>
                                     <div className="flex gap-2 overflow-x-auto pb-2 -mb-2">
-                                        {disciplines.map(d => <FilterPill key={d} value={d} activeValue={disciplineFilter} onClick={setDisciplineFilter}>{d}</FilterPill>)}
+                                        {disciplines.map(d => <FilterPill key={d} value={d} activeValue={disciplineFilter} onClick={setDisciplineFilter} color={d !== 'All' ? getDisciplineColor(d) : undefined}>{d}</FilterPill>)}
                                     </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-sm font-semibold text-dark-text-secondary mb-2">Role / Helmet</h3>
-                                    <div className="flex gap-2 items-center">
-                                         <FilterPill value="All" activeValue={helmetFilter} onClick={setHelmetFilter}>All</FilterPill>
-                                         <FilterPill value="blue" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="blue" /> Foreman</FilterPill>
-                                         <FilterPill value="green" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="green" /> Safety</FilterPill>
-                                         <FilterPill value="white" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="white" /> Worker</FilterPill>
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-dark-text-secondary mb-2">Role</h3>
+                                        <div className="flex gap-2 items-center">
+                                             <FilterPill value="All" activeValue={helmetFilter} onClick={setHelmetFilter}>All</FilterPill>
+                                             <FilterPill value="blue" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="blue" /> Foreman</FilterPill>
+                                             <FilterPill value="white" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="white" /> Worker</FilterPill>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </>
                     )}
                     
                     <main className="space-y-3 pb-24">
-                        {activeView === 'personnel' && filteredPersonnel.map(person => (
-                            <PersonnelCard
-                                key={person.id}
-                                person={person}
-                                teamName={person.teamId ? teamNameMap.get(person.teamId) || null : null}
-                                onEdit={handleStartEditPersonnel}
-                                onDelete={(id, name) => setDeleteConfirmation({ type: 'person', id, name })}
-                            />
-                        ))}
+                        {activeView === 'personnel' && filteredPersonnel.map(person => {
+                            const isAssigned = teamInfo.some(t => t.assignedTo === person.name);
+                            return (
+                                <PersonnelCard
+                                    key={person.id}
+                                    person={person}
+                                    teamName={person.teamId ? teamNameMap.get(person.teamId) || null : null}
+                                    onEdit={handleStartEditPersonnel}
+                                    onDelete={(id, name) => setDeleteConfirmation({ type: 'person', id, name })}
+                                    isAssigned={isAssigned}
+                                />
+                            );
+                        })}
                         {activeView === 'teams' && (
                             <>
                                 {teams.map(team => (
@@ -536,40 +652,45 @@ export default function App() {
                                         onCancelEdit={handleCancelEditTeam}
                                         onNameChange={setEditingTeamName}
                                         onDelete={(id, name) => setDeleteConfirmation({ type: 'team', id, name })}
+                                        onTasksChange={handleTasksChange}
+                                        onAssignedToChange={handleAssignedToChange}
                                     />
                                 ))}
                                 <div
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDrop(e, null)}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        const personId = parseInt(e.dataTransfer.getData('personId'), 10);
+                                        if (personId) {
+                                            handlePersonMove(personId, null);
+                                        }
+                                        setDraggingPersonId(null);
+                                        setDragOverTeamId(null);
+                                    }}
+                                    onDragOver={(e) => e.preventDefault()}
                                     onDragEnter={() => handleDragEnter('unassigned')}
                                     onDragLeave={handleDragLeave}
-                                    className={`bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200 ${dragOverTeamId === 'unassigned' ? 'outline outline-2 outline-offset-2 outline-brand-yellow drop-zone-active' : ''}`}
+                                    className={`bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200 ${dragOverTeamId === 'unassigned' ? 'drop-zone-active' : ''}`}
                                 >
                                     <h3 className="font-bold text-xl text-dark-text-secondary mb-3">Unassigned</h3>
                                     <div className="space-y-2 min-h-[2rem]">
                                         {unassignedPersonnel.length > 0 ? (
-                                            <List
-                                                values={unassignedPersonnel}
-                                                onChange={(oldIndex, newIndex) => {}}
-                                                renderList={({ children, props }) => (
-                                                    <div {...props} className="space-y-2">
-                                                        {children}
-                                                    </div>
-                                                )}
-                                                renderItem={({ value: member, props, isDragged }) => (
+                                            <div className="space-y-2">
+                                                {unassignedPersonnel.map((member) => (
                                                     <div
-                                                        {...props}
                                                         key={member.id}
-                                                        className={`flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors touch-handle personnel-item ${
-                                                            isDragged ? 'opacity-40 dragging-personnel' : 'opacity-100'
-                                                        } ${
-                                                            draggingPersonId === member.id ? 'dragging-personnel' : ''
+                                                        draggable
+                                                        onDragStart={(e) => {
+                                                            e.dataTransfer.effectAllowed = 'move';
+                                                            e.dataTransfer.setData('personId', member.id.toString());
+                                                            handlePersonDragStart(member.id);
+                                                        }}
+                                                        onDragEnd={() => {
+                                                            setDraggingPersonId(null);
+                                                            setDragOverTeamId(null);
+                                                        }}
+                                                        className={`flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors ${
+                                                            draggingPersonId === member.id ? 'opacity-40 dragging-personnel' : 'opacity-100'
                                                         }`}
-                                                        onMouseDown={() => handlePersonDragStart(member.id)}
-                                                        onTouchStart={() => handlePersonDragStart(member.id)}
-                                                        style={props.style}
-                                                        role="button"
-                                                        aria-label={`Drag ${member.name}`}
                                                     >
                                                         <div className="flex items-center">
                                                             <div className="w-1 h-12 bg-gray-500 rounded-r mr-2 opacity-60"
@@ -577,12 +698,14 @@ export default function App() {
                                                             <HelmetIndicator color={member.helmetColor} />
                                                             <span className="truncate ml-2">{member.name}</span>
                                                         </div>
-                                                        <a href={`tel:${member.phone}`} className="p-2 rounded-full bg-dark-card hover:bg-gray-600 transition-colors" aria-label={`Call ${member.name}`} onClick={(e) => e.stopPropagation()}>
-                                                            <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
-                                                        </a>
+                                                        {member.phone && (
+                                                            <a href={`tel:${member.phone}`} className="p-2 rounded-full bg-dark-card hover:bg-gray-600 transition-colors" aria-label={`Call ${member.name}`} onClick={(e) => e.stopPropagation()}>
+                                                                <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
+                                                            </a>
+                                                        )}
                                                     </div>
-                                                )}
-                                            />
+                                                ))}
+                                            </div>
                                         ) : (
                                             <p className="text-center text-sm text-dark-text-secondary py-2">All personnel are assigned.</p>
                                         )}

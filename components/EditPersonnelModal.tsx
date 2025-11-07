@@ -27,7 +27,7 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
   useEffect(() => {
     if (personnel) {
       setName(personnel.name);
-      setPhone(personnel.phone);
+      setPhone(personnel.phone || '');
 
       // Check if discipline is in predefined list
       if (PREDEFINED_DISCIPLINES.includes(personnel.discipline)) {
@@ -45,11 +45,11 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalDiscipline = selectedDiscipline === 'Other' ? customDiscipline : selectedDiscipline;
-    if (personnel && name && phone && finalDiscipline) {
+    if (personnel && name && finalDiscipline) {
       onEditPersonnel({
         ...personnel,
         name,
-        phone,
+        phone: phone || null,
         discipline: finalDiscipline,
         helmetColor
       });
@@ -76,14 +76,14 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
           />
         </div>
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-dark-text-secondary">Phone Number</label>
+          <label htmlFor="phone" className="block text-sm font-medium text-dark-text-secondary">Phone Number (optional)</label>
           <input
             type="tel"
             id="phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            placeholder="Optional - can be added later"
             className="mt-1 block w-full bg-dark-card border border-gray-600 rounded-md shadow-sm py-2 px-3 text-dark-text focus:outline-none focus:ring-brand-yellow focus:border-brand-yellow"
-            required
           />
         </div>
         <div>
@@ -115,7 +115,7 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
         <div>
             <label className="block text-sm font-medium text-dark-text-secondary">Role / Helmet</label>
             <div className="mt-2 flex space-x-4">
-                {(['blue', 'green', 'white'] as const).map((color) => (
+                {(['blue', 'white'] as const).map((color) => (
                     <label key={color} className="flex items-center space-x-2 text-dark-text">
                         <input
                             type="radio"
@@ -127,9 +127,9 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
                         />
                         <span className="capitalize flex items-center">
                             <span className={`w-4 h-4 rounded-full mr-2 border border-gray-500 ${
-                                color === 'white' ? 'bg-white' : color === 'green' ? 'bg-green-500' : 'bg-blue-500'
+                                color === 'white' ? 'bg-white' : 'bg-blue-500'
                             }`}></span>
-                            {color === 'blue' ? 'Foreman' : color === 'green' ? 'Safety' : 'Worker'}
+                            {color === 'blue' ? 'Foreman' : 'Worker'}
                         </span>
                     </label>
                 ))}
