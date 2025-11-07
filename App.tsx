@@ -3,8 +3,9 @@ import { List, arrayMove } from 'react-movable';
 import { Personnel, Team, TeamInfo } from './types';
 import { MOCK_PERSONNEL, MOCK_TEAM_INFO } from './constants';
 import { AddPersonnelModal } from './components/AddPersonnelModal';
+import { EditPersonnelModal } from './components/EditPersonnelModal';
 import { CreateTeamModal } from './components/CreateTeamModal';
-import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon } from './components/Icons';
+import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon, TrashIcon } from './components/Icons';
 
 // LocalStorage keys
 const STORAGE_KEYS = {
@@ -68,7 +69,12 @@ const HelmetIndicator: React.FC<{ color: 'white' | 'green' | 'blue' }> = ({ colo
 };
 
 // Sub-components defined outside App to prevent re-renders
-const PersonnelCard: React.FC<{ person: Personnel, teamName: string | null }> = ({ person, teamName }) => {
+const PersonnelCard: React.FC<{
+    person: Personnel,
+    teamName: string | null,
+    onEdit: (person: Personnel) => void,
+    onDelete: (personId: number, personName: string) => void
+}> = ({ person, teamName, onEdit, onDelete }) => {
     const roleName = getRoleName(person);
     return (
         <div className="bg-dark-card p-4 rounded-lg shadow-md flex items-center justify-between">
@@ -83,7 +89,13 @@ const PersonnelCard: React.FC<{ person: Personnel, teamName: string | null }> = 
                     {teamName && <span className="text-xs font-semibold bg-brand-blue text-white px-2 py-1 rounded-full">{teamName}</span>}
                 </div>
             </div>
-            <div className="flex flex-col space-y-3 ml-2">
+            <div className="flex flex-col space-y-2 ml-2">
+                <button onClick={() => onEdit(person)} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Edit ${person.name}`}>
+                    <PencilIcon className="w-5 h-5 text-dark-text-secondary hover:text-brand-yellow" />
+                </button>
+                <button onClick={() => onDelete(person.id, person.name)} className="p-2 rounded-full bg-dark-surface hover:bg-red-900 transition-colors" aria-label={`Delete ${person.name}`}>
+                    <TrashIcon className="w-5 h-5 text-dark-text-secondary hover:text-red-500" />
+                </button>
                 <a href={`sms:${person.phone}`} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Message ${person.name}`}>
                     <MessageIcon className="w-5 h-5 text-dark-text-secondary" />
                 </a>
@@ -138,10 +150,13 @@ export default function App() {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeView, setActiveView] = useState<'personnel' | 'teams'>('personnel');
     const [isAddPersonnelModalOpen, setAddPersonnelModalOpen] = useState(false);
+    const [isEditPersonnelModalOpen, setEditPersonnelModalOpen] = useState(false);
+    const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null);
     const [isCreateTeamModalOpen, setCreateTeamModalOpen] = useState(false);
     const [isFabMenuOpen, setFabMenuOpen] = useState(false);
     const [disciplineFilter, setDisciplineFilter] = useState<string>('All');
     const [helmetFilter, setHelmetFilter] = useState<string>('All');
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{type: 'person' | 'team', id: number, name: string} | null>(null);
 
     // Drag and Drop State
     const [draggingPersonId, setDraggingPersonId] = useState<number | null>(null);
@@ -207,6 +222,32 @@ export default function App() {
             ...prev,
             { ...newPerson, id: Date.now(), teamId: null }
         ].sort((a, b) => a.name.localeCompare(b.name)));
+    };
+
+    const handleEditPersonnel = (updatedPerson: Personnel) => {
+        setPersonnel(prev => prev.map(p =>
+            p.id === updatedPerson.id ? updatedPerson : p
+        ).sort((a, b) => a.name.localeCompare(b.name)));
+    };
+
+    const handleStartEditPersonnel = (person: Personnel) => {
+        setEditingPersonnel(person);
+        setEditPersonnelModalOpen(true);
+    };
+
+    const handleDeletePersonnel = (personId: number) => {
+        setPersonnel(prev => prev.filter(p => p.id !== personId));
+        setDeleteConfirmation(null);
+    };
+
+    const handleDeleteTeam = (teamId: number) => {
+        // Unassign all members from the team
+        setPersonnel(prev => prev.map(p =>
+            p.teamId === teamId ? { ...p, teamId: null } : p
+        ));
+        // Remove the team
+        setTeamInfo(prev => prev.filter(t => t.id !== teamId));
+        setDeleteConfirmation(null);
     };
 
     const handleCreateTeam = (name: string, memberIds: number[]) => {
@@ -316,7 +357,8 @@ export default function App() {
         onSaveEdit: () => void;
         onCancelEdit: () => void;
         onNameChange: (name: string) => void;
-    }> = ({ team, onPersonMove, isEditing, editingName, onStartEdit, onSaveEdit, onCancelEdit, onNameChange }) => {
+        onDelete: (teamId: number, teamName: string) => void;
+    }> = ({ team, onPersonMove, isEditing, editingName, onStartEdit, onSaveEdit, onCancelEdit, onNameChange, onDelete }) => {
         const handleTeamListChange = (oldIndex: number, newIndex: number) => {
             // This handles re-ordering within the same team
             // For now, we'll just maintain the order since react-movable requires this callback
@@ -368,9 +410,14 @@ export default function App() {
                     ) : (
                         <>
                             <h3 className="font-bold text-xl text-brand-yellow">{team.name}</h3>
-                            <button onClick={onStartEdit} className="p-1 rounded hover:bg-dark-surface transition-colors" aria-label="Edit team name">
-                                <PencilIcon className="w-4 h-4 text-dark-text-secondary hover:text-brand-yellow" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={onStartEdit} className="p-1 rounded hover:bg-dark-surface transition-colors" aria-label="Edit team name">
+                                    <PencilIcon className="w-4 h-4 text-dark-text-secondary hover:text-brand-yellow" />
+                                </button>
+                                <button onClick={() => onDelete(team.id, team.name)} className="p-1 rounded hover:bg-dark-surface transition-colors" aria-label="Delete team">
+                                    <TrashIcon className="w-4 h-4 text-dark-text-secondary hover:text-red-500" />
+                                </button>
+                            </div>
                         </>
                     )}
                 </div>
@@ -467,7 +514,13 @@ export default function App() {
                     
                     <main className="space-y-3 pb-24">
                         {activeView === 'personnel' && filteredPersonnel.map(person => (
-                            <PersonnelCard key={person.id} person={person} teamName={person.teamId ? teamNameMap.get(person.teamId) || null : null} />
+                            <PersonnelCard
+                                key={person.id}
+                                person={person}
+                                teamName={person.teamId ? teamNameMap.get(person.teamId) || null : null}
+                                onEdit={handleStartEditPersonnel}
+                                onDelete={(id, name) => setDeleteConfirmation({ type: 'person', id, name })}
+                            />
                         ))}
                         {activeView === 'teams' && (
                             <>
@@ -482,6 +535,7 @@ export default function App() {
                                         onSaveEdit={handleSaveTeamName}
                                         onCancelEdit={handleCancelEditTeam}
                                         onNameChange={setEditingTeamName}
+                                        onDelete={(id, name) => setDeleteConfirmation({ type: 'team', id, name })}
                                     />
                                 ))}
                                 <div
@@ -547,11 +601,20 @@ export default function App() {
             </div>
 
             <Fab />
-            
+
             <AddPersonnelModal
                 isOpen={isAddPersonnelModalOpen}
                 onClose={() => setAddPersonnelModalOpen(false)}
                 onAddPersonnel={handleAddPersonnel}
+            />
+            <EditPersonnelModal
+                isOpen={isEditPersonnelModalOpen}
+                onClose={() => {
+                    setEditPersonnelModalOpen(false);
+                    setEditingPersonnel(null);
+                }}
+                onEditPersonnel={handleEditPersonnel}
+                personnel={editingPersonnel}
             />
             <CreateTeamModal
                 isOpen={isCreateTeamModalOpen}
@@ -559,6 +622,39 @@ export default function App() {
                 unassignedPersonnel={unassignedPersonnel}
                 onCreateTeam={handleCreateTeam}
             />
+
+            {/* Delete Confirmation Dialog */}
+            {deleteConfirmation && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+                    <div className="bg-dark-card p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                        <h3 className="text-xl font-bold text-dark-text mb-4">Confirm Delete</h3>
+                        <p className="text-dark-text-secondary mb-6">
+                            Are you sure you want to delete {deleteConfirmation.type === 'person' ? 'person' : 'team'} "<span className="font-semibold text-dark-text">{deleteConfirmation.name}</span>"?
+                            {deleteConfirmation.type === 'team' && <span className="block mt-2">All team members will be unassigned.</span>}
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setDeleteConfirmation(null)}
+                                className="px-4 py-2 bg-dark-surface text-dark-text rounded-md hover:bg-gray-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (deleteConfirmation.type === 'person') {
+                                        handleDeletePersonnel(deleteConfirmation.id);
+                                    } else {
+                                        handleDeleteTeam(deleteConfirmation.id);
+                                    }
+                                }}
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
