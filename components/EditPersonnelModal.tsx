@@ -9,7 +9,7 @@ interface EditPersonnelModalProps {
   personnel: Personnel | null;
 }
 
-const PREDEFINED_DISCIPLINES = ['Rigger', 'Scaffolder', 'Pipefitter', 'Flagman', 'Rope Access'];
+const PREDEFINED_DISCIPLINES = ['Rigger', 'Scaffolder', 'Pipefitter', 'Flagman', 'Rope Access', 'Bass', 'Riggansvarling'];
 
 export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
   isOpen,
@@ -21,7 +21,7 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
   const [phone, setPhone] = useState('');
   const [selectedDiscipline, setSelectedDiscipline] = useState(PREDEFINED_DISCIPLINES[0]);
   const [customDiscipline, setCustomDiscipline] = useState('');
-  const [helmetColor, setHelmetColor] = useState<'white' | 'green' | 'blue'>('white');
+  const [helmetColor, setHelmetColor] = useState<'white' | 'blue' | 'bass' | 'riggansvarling'>('white');
 
   // Pre-populate form when personnel changes
   useEffect(() => {
@@ -114,8 +114,8 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
         )}
         <div>
             <label className="block text-sm font-medium text-dark-text-secondary">Role / Helmet</label>
-            <div className="mt-2 flex space-x-4">
-                {(['blue', 'white'] as const).map((color) => (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+                {(['blue', 'white', 'bass', 'riggansvarling'] as const).map((color) => (
                     <label key={color} className="flex items-center space-x-2 text-dark-text">
                         <input
                             type="radio"
@@ -127,9 +127,9 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
                         />
                         <span className="capitalize flex items-center">
                             <span className={`w-4 h-4 rounded-full mr-2 border border-gray-500 ${
-                                color === 'white' ? 'bg-white' : 'bg-blue-500'
+                                color === 'white' ? 'bg-white' : color === 'blue' ? 'bg-blue-500' : color === 'bass' ? 'bg-green-700' : 'bg-purple-600'
                             }`}></span>
-                            {color === 'blue' ? 'Foreman' : 'Worker'}
+                            {color === 'blue' ? 'Foreman' : color === 'white' ? 'Worker' : color === 'bass' ? 'Bass' : 'Riggansvarling'}
                         </span>
                     </label>
                 ))}

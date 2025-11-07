@@ -54,6 +54,8 @@ const mobileStyles = `
 
 const getRoleName = (person: Personnel): string => {
     if (person.helmetColor === 'blue') return `${person.discipline} Foreman`;
+    if (person.helmetColor === 'bass') return 'Bass';
+    if (person.helmetColor === 'riggansvarling') return 'Riggansvarling';
     return person.discipline;
 };
 
@@ -65,14 +67,18 @@ const getDisciplineColor = (discipline: string): string => {
         'Flagman': 'bg-yellow-700/70',
         'Rope Access': 'bg-cyan-700/70',
         'Driver': 'bg-emerald-700/70',
+        'Bass': 'bg-green-700/70',
+        'Riggansvarling': 'bg-purple-600/70',
     };
     return colorMap[discipline] || 'bg-gray-700/70';
 };
 
-const HelmetIndicator: React.FC<{ color: 'white' | 'blue' }> = ({ color }) => {
+const HelmetIndicator: React.FC<{ color: 'white' | 'blue' | 'bass' | 'riggansvarling' }> = ({ color }) => {
     const colorClass = {
         white: 'bg-white',
         blue: 'bg-blue-500',
+        bass: 'bg-green-700',
+        riggansvarling: 'bg-purple-600',
     }[color];
     return <span className={`flex-shrink-0 w-4 h-4 rounded-full border-2 border-dark-surface ${colorClass}`} title={`${color.charAt(0).toUpperCase() + color.slice(1)} Helmet`}></span>;
 };
@@ -102,7 +108,7 @@ const PersonnelCard: React.FC<{
     }, [isMenuOpen]);
 
     return (
-        <div className={`p-2 rounded-lg shadow-md relative ${isAssigned ? 'bg-blue-500/30' : 'bg-dark-card'}`}>
+        <div className={`p-2 rounded-lg shadow-md relative ${isAssigned ? 'bg-blue-500/20 border-2 border-blue-500/50' : 'bg-dark-card'}`}>
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                     <HelmetIndicator color={person.helmetColor} />
@@ -476,8 +482,8 @@ export default function App() {
                             className="flex-1 bg-dark-surface border border-gray-600 rounded px-2 py-1 text-sm text-dark-text focus:outline-none focus:ring-2 focus:ring-brand-yellow"
                         >
                             <option value="">Not assigned</option>
-                            {personnel.map(p => (
-                                <option key={p.id} value={p.name}>{p.name} ({p.discipline})</option>
+                            {personnel.filter(p => p.helmetColor === 'blue' || p.helmetColor === 'bass').map(p => (
+                                <option key={p.id} value={p.name}>{p.name} ({p.helmetColor === 'blue' ? 'Foreman' : 'Bass'})</option>
                             ))}
                             <option value="__custom__">+ Custom name</option>
                         </select>
@@ -503,9 +509,18 @@ export default function App() {
                     )}
                 </div>
 
+                {/* Separator */}
+                <div className="border-t border-gray-700 mb-3"></div>
+
                 <TeamDropZone teamId={team.id} className="space-y-2 min-h-[2rem]">
                     <div className="space-y-2">
-                        {team.members.map((member) => {
+                        {team.members.sort((a, b) => {
+                            const aIsAssigned = a.name === team.assignedTo;
+                            const bIsAssigned = b.name === team.assignedTo;
+                            if (aIsAssigned && !bIsAssigned) return -1;
+                            if (!aIsAssigned && bIsAssigned) return 1;
+                            return 0;
+                        }).map((member) => {
                             const isAssignedPerson = member.name === team.assignedTo;
                             return (
                                 <div
@@ -521,7 +536,7 @@ export default function App() {
                                         setDragOverTeamId(null);
                                     }}
                                     className={`flex justify-between items-center text-dark-text p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors ${
-                                        isAssignedPerson ? 'bg-blue-500/30' : 'bg-dark-surface'
+                                        isAssignedPerson ? 'bg-blue-500/20 border-2 border-blue-500/50' : 'bg-dark-surface'
                                     } ${draggingPersonId === member.id ? 'opacity-40 dragging-personnel' : 'opacity-100'}`}
                                 >
                                 <div className="flex items-center">
@@ -613,10 +628,12 @@ export default function App() {
                                 </div>
                                     <div>
                                         <h3 className="text-sm font-semibold text-dark-text-secondary mb-2">Role</h3>
-                                        <div className="flex gap-2 items-center">
+                                        <div className="flex gap-2 items-center flex-wrap">
                                              <FilterPill value="All" activeValue={helmetFilter} onClick={setHelmetFilter}>All</FilterPill>
                                              <FilterPill value="blue" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="blue" /> Foreman</FilterPill>
                                              <FilterPill value="white" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="white" /> Worker</FilterPill>
+                                             <FilterPill value="bass" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="bass" /> Bass</FilterPill>
+                                             <FilterPill value="riggansvarling" activeValue={helmetFilter} onClick={setHelmetFilter}><HelmetIndicator color="riggansvarling" /> Riggansvarling</FilterPill>
                                         </div>
                                     </div>
                                 </div>
