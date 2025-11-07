@@ -4,7 +4,7 @@ import { Personnel, Team, TeamInfo } from './types';
 import { MOCK_PERSONNEL, MOCK_TEAM_INFO } from './constants';
 import { AddPersonnelModal } from './components/AddPersonnelModal';
 import { CreateTeamModal } from './components/CreateTeamModal';
-import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon } from './components/Icons';
+import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon } from './components/Icons';
 
 // Touch-friendly styles for mobile drag and drop
 const mobileStyles = `
@@ -101,10 +101,14 @@ export default function App() {
     const [isFabMenuOpen, setFabMenuOpen] = useState(false);
     const [disciplineFilter, setDisciplineFilter] = useState<string>('All');
     const [helmetFilter, setHelmetFilter] = useState<string>('All');
-    
+
     // Drag and Drop State
     const [draggingPersonId, setDraggingPersonId] = useState<number | null>(null);
     const [dragOverTeamId, setDragOverTeamId] = useState<number | 'unassigned' | null>(null);
+
+    // Team editing state
+    const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
+    const [editingTeamName, setEditingTeamName] = useState<string>('');
 
     const disciplines = useMemo(() => {
         const disciplineSet = new Set(personnel.map(p => p.discipline));
@@ -204,6 +208,27 @@ export default function App() {
     const handlePersonDragStart = (personId: number) => {
         setDraggingPersonId(personId);
     };
+
+    // Team rename handlers
+    const handleStartEditTeam = (teamId: number, currentName: string) => {
+        setEditingTeamId(teamId);
+        setEditingTeamName(currentName);
+    };
+
+    const handleSaveTeamName = () => {
+        if (editingTeamId && editingTeamName.trim()) {
+            setTeamInfo(prev => prev.map(t =>
+                t.id === editingTeamId ? { ...t, name: editingTeamName.trim() } : t
+            ));
+            setEditingTeamId(null);
+            setEditingTeamName('');
+        }
+    };
+
+    const handleCancelEditTeam = () => {
+        setEditingTeamId(null);
+        setEditingTeamName('');
+    };;
     
     const FilterPill: React.FC<{ value: string; activeValue: string; onClick: (value: string) => void; children: React.ReactNode }> = ({ value, activeValue, onClick, children }) => (
         <button
@@ -232,7 +257,16 @@ export default function App() {
       </div>
     );
     
-    const TeamCard: React.FC<{ team: Team; onPersonMove: (personId: number, targetTeamId: number | null) => void }> = ({ team, onPersonMove }) => {
+    const TeamCard: React.FC<{
+        team: Team;
+        onPersonMove: (personId: number, targetTeamId: number | null) => void;
+        isEditing: boolean;
+        editingName: string;
+        onStartEdit: () => void;
+        onSaveEdit: () => void;
+        onCancelEdit: () => void;
+        onNameChange: (name: string) => void;
+    }> = ({ team, onPersonMove, isEditing, editingName, onStartEdit, onSaveEdit, onCancelEdit, onNameChange }) => {
         const handleTeamListChange = (oldIndex: number, newIndex: number) => {
             // This handles re-ordering within the same team
             // For now, we'll just maintain the order since react-movable requires this callback
@@ -260,7 +294,36 @@ export default function App() {
 
         return (
             <div className="bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200">
-                <h3 className="font-bold text-xl text-brand-yellow mb-3">{team.name}</h3>
+                <div className="flex items-center justify-between mb-3">
+                    {isEditing ? (
+                        <div className="flex items-center gap-2 flex-1">
+                            <input
+                                type="text"
+                                value={editingName}
+                                onChange={(e) => onNameChange(e.target.value)}
+                                className="flex-1 bg-dark-surface border border-brand-yellow rounded px-2 py-1 text-dark-text focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') onSaveEdit();
+                                    if (e.key === 'Escape') onCancelEdit();
+                                }}
+                            />
+                            <button onClick={onSaveEdit} className="p-1 rounded hover:bg-dark-surface transition-colors" aria-label="Save team name">
+                                <CheckIcon className="w-5 h-5 text-green-500" />
+                            </button>
+                            <button onClick={onCancelEdit} className="p-1 rounded hover:bg-dark-surface transition-colors" aria-label="Cancel editing">
+                                <XIcon className="w-5 h-5 text-red-500" />
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <h3 className="font-bold text-xl text-brand-yellow">{team.name}</h3>
+                            <button onClick={onStartEdit} className="p-1 rounded hover:bg-dark-surface transition-colors" aria-label="Edit team name">
+                                <PencilIcon className="w-4 h-4 text-dark-text-secondary hover:text-brand-yellow" />
+                            </button>
+                        </>
+                    )}
+                </div>
                 <TeamDropZone teamId={team.id} className="space-y-2 min-h-[2rem]">
                     <List
                         values={team.members}
@@ -293,7 +356,9 @@ export default function App() {
                                     <HelmetIndicator color={member.helmetColor} />
                                     <span className="truncate ml-2">{member.name}</span>
                                 </div>
-                                <span className="text-sm text-dark-text-secondary whitespace-nowrap ml-2">{getRoleName(member)}</span>
+                                <a href={`tel:${member.phone}`} className="p-2 rounded-full bg-dark-card hover:bg-gray-600 transition-colors" aria-label={`Call ${member.name}`} onClick={(e) => e.stopPropagation()}>
+                                    <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
+                                </a>
                             </div>
                         )}
                     />
@@ -306,7 +371,7 @@ export default function App() {
         <div className="bg-dark-surface min-h-screen font-sans text-dark-text">
             <div className="max-w-md mx-auto bg-dark-bg shadow-2xl min-h-screen flex flex-col">
                 <header className="bg-dark-surface p-4 shadow-md sticky top-0 z-10">
-                    <h1 className="text-2xl font-bold text-center text-brand-yellow">Rigger's Playbook</h1>
+                    <h1 className="text-2xl font-bold text-center text-brand-yellow">Hugen Book</h1>
                 </header>
 
                 <div className="p-4 flex-grow">
@@ -355,7 +420,19 @@ export default function App() {
                         ))}
                         {activeView === 'teams' && (
                             <>
-                                {teams.map(team => <TeamCard key={team.id} team={team} onPersonMove={handlePersonMove} />)}
+                                {teams.map(team => (
+                                    <TeamCard
+                                        key={team.id}
+                                        team={team}
+                                        onPersonMove={handlePersonMove}
+                                        isEditing={editingTeamId === team.id}
+                                        editingName={editingTeamName}
+                                        onStartEdit={() => handleStartEditTeam(team.id, team.name)}
+                                        onSaveEdit={handleSaveTeamName}
+                                        onCancelEdit={handleCancelEditTeam}
+                                        onNameChange={setEditingTeamName}
+                                    />
+                                ))}
                                 <div
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, null)}
@@ -395,7 +472,9 @@ export default function App() {
                                                             <HelmetIndicator color={member.helmetColor} />
                                                             <span className="truncate ml-2">{member.name}</span>
                                                         </div>
-                                                        <span className="text-sm text-dark-text-secondary whitespace-nowrap ml-2">{getRoleName(member)}</span>
+                                                        <a href={`tel:${member.phone}`} className="p-2 rounded-full bg-dark-card hover:bg-gray-600 transition-colors" aria-label={`Call ${member.name}`} onClick={(e) => e.stopPropagation()}>
+                                                            <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
+                                                        </a>
                                                     </div>
                                                 )}
                                             />
