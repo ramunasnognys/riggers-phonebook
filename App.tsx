@@ -5,7 +5,7 @@ import { MOCK_PERSONNEL, MOCK_TEAM_INFO } from './constants';
 import { AddPersonnelModal } from './components/AddPersonnelModal';
 import { EditPersonnelModal } from './components/EditPersonnelModal';
 import { CreateTeamModal } from './components/CreateTeamModal';
-import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon, TrashIcon } from './components/Icons';
+import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon, TrashIcon, DotsVerticalIcon } from './components/Icons';
 
 // LocalStorage keys
 const STORAGE_KEYS = {
@@ -75,33 +75,74 @@ const PersonnelCard: React.FC<{
     onEdit: (person: Personnel) => void,
     onDelete: (personId: number, personName: string) => void
 }> = ({ person, teamName, onEdit, onDelete }) => {
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement>(null);
     const roleName = getRoleName(person);
+
+    // Close menu when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setMenuOpen(false);
+            }
+        };
+        if (menuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [menuOpen]);
+
     return (
-        <div className="bg-dark-card p-4 rounded-lg shadow-md flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-1">
-                    <HelmetIndicator color={person.helmetColor} />
-                    <p className="font-bold text-lg text-dark-text truncate">{person.name}</p>
-                </div>
-                <p className="text-dark-text-secondary ml-7">{person.phone}</p>
-                <div className="flex items-center gap-2 mt-2 ml-7 flex-wrap">
-                    <span className="text-xs font-semibold bg-gray-600 text-gray-200 px-2 py-1 rounded-full">{roleName}</span>
-                    {teamName && <span className="text-xs font-semibold bg-brand-blue text-white px-2 py-1 rounded-full">{teamName}</span>}
-                </div>
+        <div className="bg-dark-card p-2 rounded-lg shadow-md flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+                <HelmetIndicator color={person.helmetColor} />
+                <span className="truncate text-dark-text font-medium">{person.name}</span>
             </div>
-            <div className="grid grid-cols-2 gap-1.5 ml-2">
-                <button onClick={() => onEdit(person)} className="p-1.5 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Edit ${person.name}`}>
-                    <PencilIcon className="w-4 h-4 text-dark-text-secondary hover:text-brand-yellow" />
-                </button>
-                <button onClick={() => onDelete(person.id, person.name)} className="p-1.5 rounded-full bg-dark-surface hover:bg-red-900 transition-colors" aria-label={`Delete ${person.name}`}>
-                    <TrashIcon className="w-4 h-4 text-dark-text-secondary hover:text-red-500" />
-                </button>
-                <a href={`sms:${person.phone}`} className="p-1.5 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Message ${person.name}`}>
-                    <MessageIcon className="w-4 h-4 text-dark-text-secondary" />
-                </a>
+            <span className="text-sm text-dark-text-secondary whitespace-nowrap ml-2">{roleName}</span>
+            <div className="flex items-center gap-1 ml-2">
                 <a href={`tel:${person.phone}`} className="p-1.5 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Call ${person.name}`}>
                     <PhoneIcon className="w-4 h-4 text-dark-text-secondary" />
                 </a>
+                <div className="relative" ref={menuRef}>
+                    <button
+                        onClick={() => setMenuOpen(!menuOpen)}
+                        className="p-1.5 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors"
+                        aria-label="More options"
+                    >
+                        <DotsVerticalIcon className="w-4 h-4 text-dark-text-secondary" />
+                    </button>
+                    {menuOpen && (
+                        <div className="absolute right-0 mt-1 w-40 bg-dark-surface border border-gray-600 rounded-lg shadow-xl z-50 py-1">
+                            <button
+                                onClick={() => {
+                                    onEdit(person);
+                                    setMenuOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-dark-text hover:bg-dark-card transition-colors flex items-center gap-2"
+                            >
+                                <PencilIcon className="w-4 h-4 text-brand-yellow" />
+                                Edit
+                            </button>
+                            <a
+                                href={`sms:${person.phone}`}
+                                className="w-full px-4 py-2 text-left text-dark-text hover:bg-dark-card transition-colors flex items-center gap-2"
+                            >
+                                <MessageIcon className="w-4 h-4" />
+                                Message
+                            </a>
+                            <button
+                                onClick={() => {
+                                    onDelete(person.id, person.name);
+                                    setMenuOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-dark-text hover:bg-dark-card transition-colors flex items-center gap-2"
+                            >
+                                <TrashIcon className="w-4 h-4 text-red-500" />
+                                Delete
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
