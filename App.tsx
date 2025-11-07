@@ -1,10 +1,35 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { List, arrayMove } from 'react-movable';
 import { Personnel, Team, TeamInfo } from './types';
 import { MOCK_PERSONNEL, MOCK_TEAM_INFO } from './constants';
 import { AddPersonnelModal } from './components/AddPersonnelModal';
 import { CreateTeamModal } from './components/CreateTeamModal';
 import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon, PencilIcon, CheckIcon, XIcon } from './components/Icons';
+
+// LocalStorage keys
+const STORAGE_KEYS = {
+    PERSONNEL: 'riggers-phonebook-personnel',
+    TEAM_INFO: 'riggers-phonebook-team-info'
+};
+
+// Helper functions for localStorage
+const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+        console.error(`Error loading ${key} from localStorage:`, error);
+        return defaultValue;
+    }
+};
+
+const saveToLocalStorage = <T,>(key: string, value: T): void => {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        console.error(`Error saving ${key} to localStorage:`, error);
+    }
+};
 
 // Touch-friendly styles for mobile drag and drop
 const mobileStyles = `
@@ -104,8 +129,12 @@ export default function App() {
         });
     };
 
-    const [personnel, setPersonnel] = useState<Personnel[]>(MOCK_PERSONNEL);
-    const [teamInfo, setTeamInfo] = useState<TeamInfo[]>(MOCK_TEAM_INFO);
+    const [personnel, setPersonnel] = useState<Personnel[]>(() =>
+        loadFromLocalStorage(STORAGE_KEYS.PERSONNEL, MOCK_PERSONNEL)
+    );
+    const [teamInfo, setTeamInfo] = useState<TeamInfo[]>(() =>
+        loadFromLocalStorage(STORAGE_KEYS.TEAM_INFO, MOCK_TEAM_INFO)
+    );
     const [searchTerm, setSearchTerm] = useState('');
     const [activeView, setActiveView] = useState<'personnel' | 'teams'>('personnel');
     const [isAddPersonnelModalOpen, setAddPersonnelModalOpen] = useState(false);
@@ -121,6 +150,15 @@ export default function App() {
     // Team editing state
     const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
     const [editingTeamName, setEditingTeamName] = useState<string>('');
+
+    // Save to localStorage whenever personnel or teamInfo changes
+    useEffect(() => {
+        saveToLocalStorage(STORAGE_KEYS.PERSONNEL, personnel);
+    }, [personnel]);
+
+    useEffect(() => {
+        saveToLocalStorage(STORAGE_KEYS.TEAM_INFO, teamInfo);
+    }, [teamInfo]);
 
     const disciplines = useMemo(() => {
         const disciplineSet = new Set(personnel.map(p => p.discipline));
