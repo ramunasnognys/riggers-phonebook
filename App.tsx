@@ -89,18 +89,18 @@ const PersonnelCard: React.FC<{
                     {teamName && <span className="text-xs font-semibold bg-brand-blue text-white px-2 py-1 rounded-full">{teamName}</span>}
                 </div>
             </div>
-            <div className="flex flex-col space-y-2 ml-2">
-                <button onClick={() => onEdit(person)} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Edit ${person.name}`}>
-                    <PencilIcon className="w-5 h-5 text-dark-text-secondary hover:text-brand-yellow" />
+            <div className="grid grid-cols-2 gap-1.5 ml-2">
+                <button onClick={() => onEdit(person)} className="p-1.5 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Edit ${person.name}`}>
+                    <PencilIcon className="w-4 h-4 text-dark-text-secondary hover:text-brand-yellow" />
                 </button>
-                <button onClick={() => onDelete(person.id, person.name)} className="p-2 rounded-full bg-dark-surface hover:bg-red-900 transition-colors" aria-label={`Delete ${person.name}`}>
-                    <TrashIcon className="w-5 h-5 text-dark-text-secondary hover:text-red-500" />
+                <button onClick={() => onDelete(person.id, person.name)} className="p-1.5 rounded-full bg-dark-surface hover:bg-red-900 transition-colors" aria-label={`Delete ${person.name}`}>
+                    <TrashIcon className="w-4 h-4 text-dark-text-secondary hover:text-red-500" />
                 </button>
-                <a href={`sms:${person.phone}`} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Message ${person.name}`}>
-                    <MessageIcon className="w-5 h-5 text-dark-text-secondary" />
+                <a href={`sms:${person.phone}`} className="p-1.5 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Message ${person.name}`}>
+                    <MessageIcon className="w-4 h-4 text-dark-text-secondary" />
                 </a>
-                <a href={`tel:${person.phone}`} className="p-2 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Call ${person.name}`}>
-                    <PhoneIcon className="w-5 h-5 text-dark-text-secondary" />
+                <a href={`tel:${person.phone}`} className="p-1.5 rounded-full bg-dark-surface hover:bg-gray-600 transition-colors" aria-label={`Call ${person.name}`}>
+                    <PhoneIcon className="w-4 h-4 text-dark-text-secondary" />
                 </a>
             </div>
         </div>
