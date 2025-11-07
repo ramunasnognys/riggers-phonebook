@@ -1,9 +1,31 @@
 import React, { useState, useMemo } from 'react';
+import { List, arrayMove } from 'react-movable';
 import { Personnel, Team, TeamInfo } from './types';
 import { MOCK_PERSONNEL, MOCK_TEAM_INFO } from './constants';
 import { AddPersonnelModal } from './components/AddPersonnelModal';
 import { CreateTeamModal } from './components/CreateTeamModal';
 import { PhoneIcon, MessageIcon, PlusIcon, SearchIcon, UserPlusIcon, UserGroupIcon } from './components/Icons';
+
+// Touch-friendly styles for mobile drag and drop
+const mobileStyles = `
+  .touch-handle:active {
+    background-color: #374151 !important;
+    transform: scale(1.02);
+  }
+  .drop-zone-active {
+    background-color: rgba(255, 221, 0, 0.1) !important;
+    border: 2px dashed #ffdd00 !important;
+  }
+  .dragging-personnel {
+    box-shadow: 0 4px 12px rgba(255, 221, 0, 0.3) !important;
+  }
+  @media (max-width: 768px) {
+    .personnel-item {
+      min-height: 48px !important;
+      padding: 12px 16px !important;
+    }
+  }
+`;
 
 const getRoleName = (person: Personnel): string => {
     if (person.helmetColor === 'blue') return `${person.discipline} Foreman`;
@@ -50,17 +72,9 @@ const PersonnelCard: React.FC<{ person: Personnel, teamName: string | null }> = 
 
 const DraggablePersonnelItem: React.FC<{
     member: Personnel;
-    isDragging: boolean;
-    onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-    onDragEnd: (e: React.DragEvent<HTMLDivElement>) => void;
-}> = ({ member, isDragging, onDragStart, onDragEnd }) => (
-    <div
-        key={member.id}
-        draggable
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        className={`flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'}`}
-    >
+    onMove: (oldIndex: number, newIndex: number) => void;
+}> = ({ member, onMove }) => (
+    <div className="flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors">
         <div className="flex items-center gap-2">
             <HelmetIndicator color={member.helmetColor} />
             <span className="truncate">{member.name}</span>
@@ -71,6 +85,13 @@ const DraggablePersonnelItem: React.FC<{
 
 
 export default function App() {
+    // Add mobile styles to document head
+    React.useEffect(() => {
+        const styleTag = document.createElement('style');
+        styleTag.textContent = mobileStyles;
+        document.head.appendChild(styleTag);
+        return () => document.head.removeChild(styleTag);
+    }, []);
     const [personnel, setPersonnel] = useState<Personnel[]>(MOCK_PERSONNEL);
     const [teamInfo, setTeamInfo] = useState<TeamInfo[]>(MOCK_TEAM_INFO);
     const [searchTerm, setSearchTerm] = useState('');
@@ -175,8 +196,16 @@ export default function App() {
         setDraggingPersonId(null);
         setDragOverTeamId(null);
     };
+
+    const handlePersonMove = (personId: number, targetTeamId: number | null) => {
+        setPersonnel(prev => prev.map(p => p.id === personId ? { ...p, teamId: targetTeamId } : p));
+    };
+
+    const handlePersonDragStart = (personId: number) => {
+        setDraggingPersonId(personId);
+    };
     
-    const FilterPill: React.FC<{ value: string; activeValue: string; onClick: (value: string); children: React.ReactNode }> = ({ value, activeValue, onClick, children }) => (
+    const FilterPill: React.FC<{ value: string; activeValue: string; onClick: (value: string) => void; children: React.ReactNode }> = ({ value, activeValue, onClick, children }) => (
         <button
             onClick={() => onClick(value)}
             className={`px-3 py-1 text-sm font-medium rounded-full transition-colors whitespace-nowrap flex items-center gap-2 ${activeValue === value ? 'bg-brand-blue text-white' : 'bg-dark-card text-dark-text-secondary hover:bg-gray-700'}`}
@@ -203,28 +232,75 @@ export default function App() {
       </div>
     );
     
-    const TeamCard: React.FC<{ team: Team }> = ({ team }) => (
-        <div 
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, team.id)}
-            onDragEnter={() => handleDragEnter(team.id)}
-            onDragLeave={handleDragLeave}
-            className={`bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200 ${dragOverTeamId === team.id ? 'outline outline-2 outline-offset-2 outline-brand-yellow' : ''}`}
-        >
-            <h3 className="font-bold text-xl text-brand-yellow mb-3">{team.name}</h3>
-            <div className="space-y-2 min-h-[2rem]">
-                {team.members.map(member => (
-                    <DraggablePersonnelItem 
-                        key={member.id}
-                        member={member} 
-                        isDragging={draggingPersonId === member.id}
-                        onDragStart={(e) => handleDragStart(e, member.id)}
-                        onDragEnd={handleDragEnd}
-                    />
-                ))}
+    const TeamCard: React.FC<{ team: Team; onPersonMove: (personId: number, targetTeamId: number | null) => void }> = ({ team, onPersonMove }) => {
+        const handleTeamListChange = (oldIndex: number, newIndex: number) => {
+            // This handles re-ordering within the same team
+            // For now, we'll just maintain the order since react-movable requires this callback
+        };
+
+        // Component to handle cross-team drops
+        const TeamDropZone: React.FC<{ teamId: number | null; children: React.ReactNode; className?: string }> = ({ teamId, children, className = '' }) => (
+            <div
+                onDrop={(e) => {
+                    e.preventDefault();
+                    const personId = draggingPersonId;
+                    if (personId) {
+                        onPersonMove(personId, teamId);
+                        setDraggingPersonId(null);
+                    }
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragEnter={() => handleDragEnter(teamId)}
+                onDragLeave={handleDragLeave}
+                className={className + (dragOverTeamId === teamId ? ' outline outline-2 outline-offset-2 outline-brand-yellow drop-zone-active' : '')}
+            >
+                {children}
             </div>
-        </div>
-    );
+        );
+
+        return (
+            <div className="bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200">
+                <h3 className="font-bold text-xl text-brand-yellow mb-3">{team.name}</h3>
+                <TeamDropZone teamId={team.id} className="space-y-2 min-h-[2rem]">
+                    <List
+                        values={team.members}
+                        onChange={handleTeamListChange}
+                        renderList={({ children, props }) => (
+                            <div {...props} className="space-y-2">
+                                {children}
+                            </div>
+                        )}
+                        renderItem={({ value: member, index, props, isDragged }) => (
+                            <div
+                                {...props}
+                                key={member.id}
+                                className={`flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors touch-handle personnel-item ${
+                                    isDragged ? 'opacity-40 dragging-personnel' : 'opacity-100'
+                                } ${
+                                    index === 0 ? '' : 'mt-2'
+                                } ${
+                                    draggingPersonId === member.id ? 'dragging-personnel' : ''
+                                }`}
+                                onMouseDown={() => handlePersonDragStart(member.id)}
+                                onTouchStart={() => handlePersonDragStart(member.id)}
+                                style={props.style}
+                                role="button"
+                                aria-label={`Drag ${member.name}`}
+                            >
+                                <div className="flex items-center">
+                                    <div className="w-1 h-12 bg-gray-500 rounded-r mr-2 opacity-60"
+                                         style={{ opacity: draggingPersonId === member.id ? '0.8' : '0.4' }} />
+                                    <HelmetIndicator color={member.helmetColor} />
+                                    <span className="truncate ml-2">{member.name}</span>
+                                </div>
+                                <span className="text-sm text-dark-text-secondary whitespace-nowrap ml-2">{getRoleName(member)}</span>
+                            </div>
+                        )}
+                    />
+                </TeamDropZone>
+            </div>
+        );
+    };
 
     return (
         <div className="bg-dark-surface min-h-screen font-sans text-dark-text">
@@ -279,26 +355,50 @@ export default function App() {
                         ))}
                         {activeView === 'teams' && (
                             <>
-                                {teams.map(team => <TeamCard key={team.id} team={team} />)}
-                                <div 
+                                {teams.map(team => <TeamCard key={team.id} team={team} onPersonMove={handlePersonMove} />)}
+                                <div
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, null)}
                                     onDragEnter={() => handleDragEnter('unassigned')}
                                     onDragLeave={handleDragLeave}
-                                    className={`bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200 ${dragOverTeamId === 'unassigned' ? 'outline outline-2 outline-offset-2 outline-brand-yellow' : ''}`}
+                                    className={`bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200 ${dragOverTeamId === 'unassigned' ? 'outline outline-2 outline-offset-2 outline-brand-yellow drop-zone-active' : ''}`}
                                 >
                                     <h3 className="font-bold text-xl text-dark-text-secondary mb-3">Unassigned</h3>
                                     <div className="space-y-2 min-h-[2rem]">
                                         {unassignedPersonnel.length > 0 ? (
-                                            unassignedPersonnel.map(member => (
-                                                <DraggablePersonnelItem 
-                                                    key={member.id}
-                                                    member={member} 
-                                                    isDragging={draggingPersonId === member.id}
-                                                    onDragStart={(e) => handleDragStart(e, member.id)}
-                                                    onDragEnd={handleDragEnd}
-                                                />
-                                            ))
+                                            <List
+                                                values={unassignedPersonnel}
+                                                onChange={(oldIndex, newIndex) => {}}
+                                                renderList={({ children, props }) => (
+                                                    <div {...props} className="space-y-2">
+                                                        {children}
+                                                    </div>
+                                                )}
+                                                renderItem={({ value: member, props, isDragged }) => (
+                                                    <div
+                                                        {...props}
+                                                        key={member.id}
+                                                        className={`flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors touch-handle personnel-item ${
+                                                            isDragged ? 'opacity-40 dragging-personnel' : 'opacity-100'
+                                                        } ${
+                                                            draggingPersonId === member.id ? 'dragging-personnel' : ''
+                                                        }`}
+                                                        onMouseDown={() => handlePersonDragStart(member.id)}
+                                                        onTouchStart={() => handlePersonDragStart(member.id)}
+                                                        style={props.style}
+                                                        role="button"
+                                                        aria-label={`Drag ${member.name}`}
+                                                    >
+                                                        <div className="flex items-center">
+                                                            <div className="w-1 h-12 bg-gray-500 rounded-r mr-2 opacity-60"
+                                                                 style={{ opacity: draggingPersonId === member.id ? '0.8' : '0.4' }} />
+                                                            <HelmetIndicator color={member.helmetColor} />
+                                                            <span className="truncate ml-2">{member.name}</span>
+                                                        </div>
+                                                        <span className="text-sm text-dark-text-secondary whitespace-nowrap ml-2">{getRoleName(member)}</span>
+                                                    </div>
+                                                )}
+                                            />
                                         ) : (
                                             <p className="text-center text-sm text-dark-text-secondary py-2">All personnel are assigned.</p>
                                         )}
