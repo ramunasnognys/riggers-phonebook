@@ -92,6 +92,18 @@ export default function App() {
         document.head.appendChild(styleTag);
         return () => document.head.removeChild(styleTag);
     }, []);
+
+    // Format current date
+    const getCurrentDate = () => {
+        const date = new Date();
+        return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+
     const [personnel, setPersonnel] = useState<Personnel[]>(MOCK_PERSONNEL);
     const [teamInfo, setTeamInfo] = useState<TeamInfo[]>(MOCK_TEAM_INFO);
     const [searchTerm, setSearchTerm] = useState('');
@@ -372,6 +384,7 @@ export default function App() {
             <div className="max-w-md mx-auto bg-dark-bg shadow-2xl min-h-screen flex flex-col">
                 <header className="bg-dark-surface p-4 shadow-md sticky top-0 z-10">
                     <h1 className="text-2xl font-bold text-center text-brand-yellow">Hugen Book</h1>
+                    <p className="text-sm text-center text-dark-text-secondary mt-1">{getCurrentDate()}</p>
                 </header>
 
                 <div className="p-4 flex-grow">
