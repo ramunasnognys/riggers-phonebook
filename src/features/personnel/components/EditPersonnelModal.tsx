@@ -144,3 +144,5 @@ export const EditPersonnelModal: React.FC<EditPersonnelModalProps> = ({
     </Modal>
   );
 };
+
+export default EditPersonnelModal;

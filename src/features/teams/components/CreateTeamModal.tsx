@@ -90,3 +90,5 @@ export const CreateTeamModal: React.FC<CreateTeamModalProps> = ({ isOpen, onClos
     </Modal>
   );
 };
+
+export default CreateTeamModal;

@@ -118,3 +118,5 @@ export const AddPersonnelModal: React.FC<AddPersonnelModalProps> = ({ isOpen, on
     </Modal>
   );
 };
+
+export default AddPersonnelModal;
