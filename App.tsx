@@ -246,7 +246,15 @@ export default function App() {
                 teamsMap.get(p.teamId)!.members.push(p);
             }
         });
-        return Array.from(teamsMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+        return Array.from(teamsMap.values()).sort((a,b) => {
+            // Sort teams with assigned foremen first
+            const aIsAssigned = !!a.assignedTo;
+            const bIsAssigned = !!b.assignedTo;
+            if (aIsAssigned && !bIsAssigned) return -1;
+            if (!aIsAssigned && bIsAssigned) return 1;
+            // Then sort alphabetically by name
+            return a.name.localeCompare(b.name);
+        });
     }, [personnel, teamInfo]);
 
     const unassignedPersonnel = useMemo(() =>
@@ -425,7 +433,9 @@ export default function App() {
         );
 
         return (
-            <div className="bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200">
+            <div className={`p-4 rounded-lg shadow-md transition-all duration-200 ${
+                team.assignedTo ? 'bg-blue-500/20 border-2 border-blue-500/50' : 'bg-dark-card'
+            }`}>
                 <div className="flex items-center justify-between mb-3">
                     {isEditing ? (
                         <div className="flex items-center gap-2 flex-1">
