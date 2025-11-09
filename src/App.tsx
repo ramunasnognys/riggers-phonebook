@@ -80,6 +80,10 @@ export default function App() {
         updateTeamName,
         updateTeamTasks,
         updateTeamAssignment,
+        updateTeamLeader,
+        updateTeamLocation,
+        updateTeamJobCode,
+        updateTeamDate,
         deleteTeam,
     } = useTeams();
 
@@ -159,8 +163,8 @@ export default function App() {
         setDeleteConfirmation(null);
     }, [personnel, assignToTeam, deleteTeam]);
 
-    const handleCreateTeam = useCallback((name: string, memberIds: number[]) => {
-        const newTeamId = createTeam(name);
+    const handleCreateTeam = useCallback((name: string, memberIds: number[], date: string, teamLeader: string, location: string, jobCode: string) => {
+        const newTeamId = createTeam(name, date, teamLeader, location, jobCode);
         memberIds.forEach(memberId => {
             assignToTeam(memberId, newTeamId);
         });
@@ -286,6 +290,9 @@ export default function App() {
                                         onDelete={(id, name) => setDeleteConfirmation({ type: 'team', id, name })}
                                         onTasksChange={updateTeamTasks}
                                         onAssignedToChange={updateTeamAssignment}
+                                        onUpdateTeamLeader={updateTeamLeader}
+                                        onUpdateLocation={updateTeamLocation}
+                                        onUpdateJobCode={updateTeamJobCode}
                                     />
                                 ))}
                                 <div

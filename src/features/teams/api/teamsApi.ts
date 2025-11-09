@@ -11,10 +11,14 @@ export const teamsApi = {
         saveToStorage(STORAGE_KEYS.TEAM_INFO, teams);
     },
 
-    create: (name: string): TeamInfo => {
+    create: (name: string, date?: string, teamLeader?: string, location?: string, jobCode?: string): TeamInfo => {
         return {
             id: Date.now(),
             name,
+            date: date || new Date().toISOString().split('T')[0], // Default to today
+            teamLeader: teamLeader || '',
+            location: location || '',
+            jobCode: jobCode || '0000',
             tasks: '',
         };
     },
