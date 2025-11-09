@@ -22,8 +22,36 @@ export const MOCK_PERSONNEL: Personnel[] = [
 ];
 
 export const MOCK_TEAM_INFO = [
-    {id: 1, name: 'Alpha Crew'},
-    {id: 2, name: 'Bravo Crew'},
-    {id: 3, name: 'Charlie Crew'},
-    {id: 4, name: 'Delta Crew'},
+    {
+        id: 1,
+        name: 'Alpha Crew',
+        date: '2025-01-09',
+        teamLeader: 'John Smith',
+        location: 'Site A',
+        jobCode: '1001',
+    },
+    {
+        id: 2,
+        name: 'Bravo Crew',
+        date: '2025-01-09',
+        teamLeader: 'Dave Davis',
+        location: 'Site B',
+        jobCode: '1002',
+    },
+    {
+        id: 3,
+        name: 'Charlie Crew',
+        date: '2025-01-09',
+        teamLeader: 'Steve Miller',
+        location: 'Site A',
+        jobCode: '1003',
+    },
+    {
+        id: 4,
+        name: 'Delta Crew',
+        date: '2025-01-09',
+        teamLeader: 'James Clark',
+        location: 'Site C',
+        jobCode: '1004',
+    },
 ];

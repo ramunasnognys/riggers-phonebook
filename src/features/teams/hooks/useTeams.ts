@@ -9,8 +9,8 @@ export const useTeams = () => {
         teamsApi.save(teamInfo);
     }, [teamInfo]);
 
-    const createTeam = useCallback((name: string) => {
-        const newTeam = teamsApi.create(name);
+    const createTeam = useCallback((name: string, date?: string, teamLeader?: string, location?: string, jobCode?: string) => {
+        const newTeam = teamsApi.create(name, date, teamLeader, location, jobCode);
         setTeamInfo(prev => [...prev, newTeam]);
         return newTeam.id;
     }, []);
@@ -33,6 +33,30 @@ export const useTeams = () => {
         ));
     }, []);
 
+    const updateTeamLeader = useCallback((teamId: number, teamLeader: string) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, teamLeader } : t
+        ));
+    }, []);
+
+    const updateTeamLocation = useCallback((teamId: number, location: string) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, location } : t
+        ));
+    }, []);
+
+    const updateTeamJobCode = useCallback((teamId: number, jobCode: string) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, jobCode } : t
+        ));
+    }, []);
+
+    const updateTeamDate = useCallback((teamId: number, date: string) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, date } : t
+        ));
+    }, []);
+
     const deleteTeam = useCallback((teamId: number) => {
         setTeamInfo(prev => teamsApi.delete(teamId, prev));
     }, []);
@@ -43,6 +67,10 @@ export const useTeams = () => {
         updateTeamName,
         updateTeamTasks,
         updateTeamAssignment,
+        updateTeamLeader,
+        updateTeamLocation,
+        updateTeamJobCode,
+        updateTeamDate,
         deleteTeam,
     };
 };
