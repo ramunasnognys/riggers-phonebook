@@ -33,6 +33,36 @@ export const useTeams = () => {
         ));
     }, []);
 
+    const updateTeamLeader = useCallback((teamId: number, teamLeader: string | null) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, teamLeader } : t
+        ));
+    }, []);
+
+    const updateLocation = useCallback((teamId: number, location: string | null) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, location } : t
+        ));
+    }, []);
+
+    const updateWorkOrder = useCallback((teamId: number, workOrder: string | null) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, workOrder } : t
+        ));
+    }, []);
+
+    const updateStatus = useCallback((teamId: number, status: 'active' | 'completed' | 'archived') => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, status } : t
+        ));
+    }, []);
+
+    const updateDate = useCallback((teamId: number, date: string) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, date } : t
+        ));
+    }, []);
+
     const deleteTeam = useCallback((teamId: number) => {
         setTeamInfo(prev => teamsApi.delete(teamId, prev));
     }, []);
@@ -43,6 +73,11 @@ export const useTeams = () => {
         updateTeamName,
         updateTeamTasks,
         updateTeamAssignment,
+        updateTeamLeader,
+        updateLocation,
+        updateWorkOrder,
+        updateStatus,
+        updateDate,
         deleteTeam,
     };
 };

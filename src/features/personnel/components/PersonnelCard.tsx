@@ -43,8 +43,17 @@ export const PersonnelCard: React.FC<PersonnelCardProps> = ({
         setIsMenuOpen(false);
     }, [onDelete, person.id, person.name]);
 
+    const handleDragStart = useCallback((e: React.DragEvent) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('personId', person.id.toString());
+    }, [person.id]);
+
     return (
-        <div className={`p-2 rounded-lg shadow-md relative ${isAssigned ? 'bg-blue-500/20 border-2 border-blue-500/50' : 'bg-dark-card'}`}>
+        <div
+            className={`p-2 rounded-lg shadow-md relative transition-all ${isAssigned ? 'bg-blue-500/20 border-2 border-blue-500/50' : 'bg-dark-card hover:bg-gray-700 cursor-grab active:cursor-grabbing'}`}
+            draggable={!isAssigned}
+            onDragStart={handleDragStart}
+        >
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                     <HelmetIndicator color={person.helmetColor} />

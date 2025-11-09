@@ -5,6 +5,12 @@ export interface TeamInfo {
     name: string;
     tasks?: string;
     assignedTo?: string | null;
+    teamLeader?: string | null;
+    location?: string | null;
+    workOrder?: string | null; // 4-digit work order number
+    status?: 'open' | 'closed';
+    date?: string; // YYYY-MM-DD format for tracking
+    notes?: string;
 }
 
 export interface Team extends TeamInfo {

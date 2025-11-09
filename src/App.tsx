@@ -37,6 +37,14 @@ const mobileStyles = `
       padding: 12px 16px !important;
     }
   }
+  /* Hide scrollbar while maintaining scroll functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
 `;
 
 interface DeleteConfirmation {
@@ -80,6 +88,11 @@ export default function App() {
         updateTeamName,
         updateTeamTasks,
         updateTeamAssignment,
+        updateTeamLeader,
+        updateLocation,
+        updateWorkOrder,
+        updateStatus,
+        updateDate,
         deleteTeam,
     } = useTeams();
 
@@ -107,6 +120,7 @@ export default function App() {
 
     // UI state
     const [activeView, setActiveView] = useState<'personnel' | 'teams'>('personnel');
+    const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '1week' | '2weeks' | 'all'>('today');
     const [isAddPersonnelModalOpen, setAddPersonnelModalOpen] = useState(false);
     const [isEditPersonnelModalOpen, setEditPersonnelModalOpen] = useState(false);
     const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null);
@@ -136,6 +150,31 @@ export default function App() {
         teamInfo.forEach(t => map.set(t.id, t.name));
         return map;
     }, [teamInfo]);
+
+    const filteredTeams = useMemo(() => {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const yesterday = new Date(now.setDate(now.getDate() - 1)).toISOString().split('T')[0];
+        const oneWeekStart = new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0];
+        const twoWeeksStart = new Date(new Date().setDate(new Date().getDate() - 14)).toISOString().split('T')[0];
+
+        return teams.filter(team => {
+            if (dateFilter === 'all') return true;
+            if (!team.date) return dateFilter === 'today'; // Show teams without date only in "today"
+
+            if (dateFilter === 'today') return team.date === today;
+            if (dateFilter === 'yesterday') return team.date === yesterday;
+            if (dateFilter === '1week') return team.date >= oneWeekStart;
+            if (dateFilter === '2weeks') return team.date >= twoWeeksStart;
+            return true;
+        }).sort((a, b) => {
+            // Sort by date desc (newest first), then by name
+            const dateA = a.date || '';
+            const dateB = b.date || '';
+            if (dateB !== dateA) return dateB.localeCompare(dateA);
+            return a.name.localeCompare(b.name);
+        });
+    }, [teams, dateFilter]);
 
     // Event handlers
     const handleStartEditPersonnel = useCallback((person: Personnel) => {
@@ -168,7 +207,7 @@ export default function App() {
 
     return (
         <div className="bg-dark-surface min-h-screen font-sans text-dark-text">
-            <div className="max-w-md mx-auto bg-dark-bg shadow-2xl min-h-screen flex flex-col">
+            <div className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto bg-dark-bg shadow-2xl min-h-screen flex flex-col">
                 <header className="bg-dark-surface p-4 shadow-md sticky top-0 z-10">
                     <h1 className="text-2xl font-bold text-center text-brand-yellow">Hugen Book</h1>
                     <p className="text-sm text-center text-dark-text-secondary mt-1">{getCurrentDate()}</p>
@@ -189,6 +228,23 @@ export default function App() {
                             Teams
                         </button>
                     </div>
+
+                    {activeView === 'teams' && (
+                        <div className="mb-4">
+                            <label className="block text-xs text-gray-400 mb-2">Filter by Date:</label>
+                            <select
+                                value={dateFilter}
+                                onChange={(e) => setDateFilter(e.target.value as any)}
+                                className="w-full bg-dark-card border border-gray-600 rounded-lg py-3 px-4 text-dark-text focus:outline-none focus:ring-2 focus:ring-brand-yellow min-h-[48px]"
+                            >
+                                <option value="today">Today ({filteredTeams.length})</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="1week">1 Week</option>
+                                <option value="2weeks">2 Weeks</option>
+                                <option value="all">All Dates</option>
+                            </select>
+                        </div>
+                    )}
 
                     {activeView === 'personnel' && (
                         <>
@@ -217,7 +273,7 @@ export default function App() {
                                 <div className="mb-4 space-y-3">
                                     <div>
                                         <h3 className="text-sm font-semibold text-dark-text-secondary mb-2">Discipline</h3>
-                                        <div className="flex gap-2 overflow-x-auto pb-2 -mb-2">
+                                        <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
                                             {disciplines.map(d => (
                                                 <FilterPill
                                                     key={d}
@@ -270,22 +326,19 @@ export default function App() {
                         })}
                         {activeView === 'teams' && (
                             <>
-                                {teams.map(team => (
+                                {filteredTeams.map(team => (
                                     <TeamCard
                                         key={team.id}
                                         team={team}
                                         personnel={personnel}
-                                        draggingPersonId={draggingPersonId}
-                                        dragOverTeamId={dragOverTeamId}
-                                        onPersonMove={assignToTeam}
-                                        onDragStart={handleDragStart}
-                                        onDragEnter={handleDragEnter}
-                                        onDragLeave={handleDragLeave}
-                                        onDragEnd={handleDragEnd}
+                                        currentDate={getCurrentDate()}
                                         onUpdateName={updateTeamName}
                                         onDelete={(id, name) => setDeleteConfirmation({ type: 'team', id, name })}
-                                        onTasksChange={updateTeamTasks}
-                                        onAssignedToChange={updateTeamAssignment}
+                                        onLocationChange={updateLocation}
+                                        onWorkOrderChange={updateWorkOrder}
+                                        onStatusChange={updateStatus}
+                                        onAssignPerson={(teamId, personId) => assignToTeam(personId, teamId)}
+                                        onRemovePerson={(teamId, personId) => assignToTeam(personId, null)}
                                     />
                                 ))}
                                 <div

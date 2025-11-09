@@ -21,9 +21,15 @@ export const MOCK_PERSONNEL: Personnel[] = [
   { id: 18, name: 'Frank "Plank" Wright', phone: '555-0118', teamId: 4, discipline: 'Scaffolder', helmetColor: 'blue' },
 ];
 
+// Helper to get dates
+const today = new Date().toISOString().split('T')[0];
+const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
+const threeDaysAgo = new Date(new Date().setDate(new Date().getDate() - 3)).toISOString().split('T')[0];
+const fiveDaysAgo = new Date(new Date().setDate(new Date().getDate() - 5)).toISOString().split('T')[0];
+
 export const MOCK_TEAM_INFO = [
-    {id: 1, name: 'Alpha Crew'},
-    {id: 2, name: 'Bravo Crew'},
-    {id: 3, name: 'Charlie Crew'},
-    {id: 4, name: 'Delta Crew'},
+    {id: 1, name: 'Alpha Crew', location: 'PAU1', workOrder: '1234', status: 'open', date: today, notes: ''},
+    {id: 2, name: 'Bravo Crew', location: 'PAU2', workOrder: '1235', status: 'closed', date: yesterday, notes: ''},
+    {id: 3, name: 'Charlie Crew', location: 'PAU3', workOrder: '1236', status: 'open', date: threeDaysAgo, notes: ''},
+    {id: 4, name: 'Delta Crew', location: 'PAU4', workOrder: '1237', status: 'closed', date: fiveDaysAgo, notes: ''},
 ];

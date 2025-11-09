@@ -12,10 +12,17 @@ export const teamsApi = {
     },
 
     create: (name: string): TeamInfo => {
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         return {
             id: Date.now(),
             name,
             tasks: '',
+            teamLeader: null,
+            location: null,
+            workOrder: null,
+            status: 'open',
+            date: today,
+            notes: '',
         };
     },
 
