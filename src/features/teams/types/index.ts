@@ -8,7 +8,7 @@ export interface TeamInfo {
     teamLeader?: string | null;
     location?: string | null;
     workOrder?: string | null; // 4-digit work order number
-    status?: 'open' | 'closed';
+    status?: 'Not started' | 'In progress' | 'Done' | 'On hold';
     date?: string; // YYYY-MM-DD format for tracking
     notes?: string;
 }

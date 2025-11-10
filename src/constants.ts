@@ -28,8 +28,8 @@ const threeDaysAgo = new Date(new Date().setDate(new Date().getDate() - 3)).toIS
 const fiveDaysAgo = new Date(new Date().setDate(new Date().getDate() - 5)).toISOString().split('T')[0];
 
 export const MOCK_TEAM_INFO = [
-    {id: 1, name: 'Alpha Crew', location: 'PAU1', workOrder: '1234', status: 'open', date: today, notes: ''},
-    {id: 2, name: 'Bravo Crew', location: 'PAU2', workOrder: '1235', status: 'closed', date: yesterday, notes: ''},
-    {id: 3, name: 'Charlie Crew', location: 'PAU3', workOrder: '1236', status: 'open', date: threeDaysAgo, notes: ''},
-    {id: 4, name: 'Delta Crew', location: 'PAU4', workOrder: '1237', status: 'closed', date: fiveDaysAgo, notes: ''},
+    {id: 1, name: 'Alpha Crew', location: 'PAU1', workOrder: '1234', status: 'In progress', date: today, notes: ''},
+    {id: 2, name: 'Bravo Crew', location: 'PAU2', workOrder: '1235', status: 'Done', date: yesterday, notes: ''},
+    {id: 3, name: 'Charlie Crew', location: 'PAU3', workOrder: '1236', status: 'Not started', date: threeDaysAgo, notes: ''},
+    {id: 4, name: 'Delta Crew', location: 'PAU4', workOrder: '1237', status: 'On hold', date: fiveDaysAgo, notes: ''},
 ];

@@ -51,7 +51,7 @@ export const useTeams = () => {
         ));
     }, []);
 
-    const updateStatus = useCallback((teamId: number, status: 'active' | 'completed' | 'archived') => {
+    const updateStatus = useCallback((teamId: number, status: 'Not started' | 'In progress' | 'Done' | 'On hold') => {
         setTeamInfo(prev => prev.map(t =>
             t.id === teamId ? { ...t, status } : t
         ));

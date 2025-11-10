@@ -3,6 +3,7 @@ import type { Team } from '../types';
 import type { Personnel } from '@/features/personnel/types';
 import { PencilIcon, TrashIcon, CheckIcon, XIcon, MapPinIcon, DotsVerticalIcon } from '@/components/ui/Icons';
 import { HelmetIndicator } from '@/components/ui/HelmetIndicator';
+import { StatusDropdown } from './StatusDropdown';
 
 // Location history manager
 const LOCATION_HISTORY_KEY = 'team_location_history';
@@ -31,7 +32,7 @@ interface TeamCardProps {
     onDelete: (teamId: number, teamName: string) => void;
     onLocationChange: (teamId: number, location: string | null) => void;
     onWorkOrderChange: (teamId: number, workOrder: string | null) => void;
-    onStatusChange: (teamId: number, status: 'open' | 'closed') => void;
+    onStatusChange: (teamId: number, status: 'Not started' | 'In progress' | 'Done' | 'On hold') => void;
     onAssignPerson: (teamId: number, personId: number) => void;
     onRemovePerson: (teamId: number, personId: number) => void;
 }
@@ -154,10 +155,9 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         onRemovePerson(team.id, personId);
     }, [onRemovePerson, team.id]);
 
-    const handleStatusToggle = useCallback(() => {
-        const newStatus = team.status === 'open' ? 'closed' : 'open';
-        onStatusChange(team.id, newStatus);
-    }, [team.status, onStatusChange, team.id]);
+    const handleStatusChange = useCallback((status: 'Not started' | 'In progress' | 'Done' | 'On hold') => {
+        onStatusChange(team.id, status);
+    }, [onStatusChange, team.id]);
 
     // Format date from YYYY-MM-DD to DD/MM
     const formatDateDisplay = (dateStr: string | undefined): string => {
@@ -249,17 +249,11 @@ export const TeamCard: React.FC<TeamCardProps> = ({
                         )}
                     </div>
 
-                    {/* Status Badge - Rectangle */}
-                    <button
-                        onClick={handleStatusToggle}
-                        className={`px-4 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                            team.status === 'open'
-                                ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
-                                : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                        }`}
-                    >
-                        {team.status === 'open' ? 'Open' : 'Closed'}
-                    </button>
+                    {/* Status Dropdown */}
+                    <StatusDropdown
+                        value={team.status || 'Not started'}
+                        onChange={handleStatusChange}
+                    />
 
                     {/* Actions Menu */}
                     <div className="relative" ref={actionsMenuRef}>
@@ -477,17 +471,11 @@ export const TeamCard: React.FC<TeamCardProps> = ({
                         )}
                     </div>
 
-                    {/* Status Badge - Rectangle */}
-                    <button
-                        onClick={handleStatusToggle}
-                        className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                            team.status === 'open'
-                                ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
-                                : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                        }`}
-                    >
-                        {team.status === 'open' ? 'Open' : 'Closed'}
-                    </button>
+                    {/* Status Dropdown */}
+                    <StatusDropdown
+                        value={team.status || 'Not started'}
+                        onChange={handleStatusChange}
+                    />
 
                     {/* Actions Menu */}
                     <button
