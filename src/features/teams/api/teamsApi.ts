@@ -20,7 +20,7 @@ export const teamsApi = {
             teamLeader: null,
             location: null,
             workOrder: null,
-            status: 'open',
+            status: 'Not started',
             date: today,
             notes: '',
         };
