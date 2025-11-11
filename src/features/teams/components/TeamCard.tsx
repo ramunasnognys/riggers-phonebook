@@ -28,6 +28,7 @@ interface TeamCardProps {
     team: Team;
     personnel: Personnel[];
     currentDate: string;
+    allTeams: Team[];
     onUpdateName: (teamId: number, name: string) => void;
     onDelete: (teamId: number, teamName: string) => void;
     onLocationChange: (teamId: number, location: string | null) => void;
@@ -35,12 +36,15 @@ interface TeamCardProps {
     onStatusChange: (teamId: number, status: 'Not started' | 'In progress' | 'Done' | 'On hold') => void;
     onAssignPerson: (teamId: number, personId: number) => void;
     onRemovePerson: (teamId: number, personId: number) => void;
+    onSwitchTeam: (currentTeamId: number, selectedTeamId: number) => void;
+    onCreateTeamFromCard: (currentTeamId: number) => void;
 }
 
 export const TeamCard: React.FC<TeamCardProps> = ({
     team,
     personnel,
     currentDate,
+    allTeams,
     onUpdateName,
     onDelete,
     onLocationChange,
@@ -48,6 +52,8 @@ export const TeamCard: React.FC<TeamCardProps> = ({
     onStatusChange,
     onAssignPerson,
     onRemovePerson,
+    onSwitchTeam,
+    onCreateTeamFromCard,
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editingName, setEditingName] = useState('');
@@ -58,12 +64,14 @@ export const TeamCard: React.FC<TeamCardProps> = ({
     const [showMembersDropdown, setShowMembersDropdown] = useState(false);
     const [showLocationDropdown, setShowLocationDropdown] = useState(false);
     const [showActionsMenu, setShowActionsMenu] = useState(false);
+    const [showTeamDropdown, setShowTeamDropdown] = useState(false);
     const [locationSearch, setLocationSearch] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
 
     const membersDropdownRef = useRef<HTMLDivElement>(null);
     const locationDropdownRef = useRef<HTMLDivElement>(null);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
+    const teamDropdownRef = useRef<HTMLDivElement>(null);
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -77,6 +85,9 @@ export const TeamCard: React.FC<TeamCardProps> = ({
             }
             if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
                 setShowActionsMenu(false);
+            }
+            if (teamDropdownRef.current && !teamDropdownRef.current.contains(event.target as Node)) {
+                setShowTeamDropdown(false);
             }
         };
 
@@ -177,6 +188,19 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         ? locationHistory.filter(loc => loc.toLowerCase().includes(locationSearch.toLowerCase()))
         : locationHistory;
 
+    // Filter out current team from dropdown
+    const availableTeams = allTeams.filter(t => t.id !== team.id);
+
+    const handleTeamSelect = useCallback((selectedTeamId: number) => {
+        onSwitchTeam(team.id, selectedTeamId);
+        setShowTeamDropdown(false);
+    }, [onSwitchTeam, team.id]);
+
+    const handleCreateTeam = useCallback(() => {
+        onCreateTeamFromCard(team.id);
+        setShowTeamDropdown(false);
+    }, [onCreateTeamFromCard, team.id]);
+
     return (
         <div
             className={`bg-dark-card rounded-lg shadow-md transition-all duration-200 hover:shadow-lg ${isDragOver ? 'ring-2 ring-brand-yellow bg-brand-yellow/10' : ''}`}
@@ -221,7 +245,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
                     <span className="text-gray-600">•</span>
 
                     {/* Team Name */}
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2 flex-1 relative" ref={teamDropdownRef}>
                         {isEditing ? (
                             <div className="flex items-center gap-1 flex-1">
                                 <input
@@ -243,9 +267,44 @@ export const TeamCard: React.FC<TeamCardProps> = ({
                                 </button>
                             </div>
                         ) : (
-                            <span onClick={handleStartEdit} className="text-base font-semibold text-brand-yellow cursor-pointer hover:underline truncate">
-                                {team.name}
-                            </span>
+                            <>
+                                <span onClick={handleStartEdit} className="text-base font-semibold text-brand-yellow cursor-pointer hover:underline truncate">
+                                    {team.name}
+                                </span>
+                                <button
+                                    onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                                    className="p-1 hover:bg-dark-surface rounded transition-colors"
+                                    aria-label="Team selector"
+                                >
+                                    <svg className={`w-3 h-3 text-brand-yellow transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                {showTeamDropdown && (
+                                    <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg min-w-[200px] max-h-64 overflow-y-auto z-30">
+                                        <button
+                                            onClick={handleCreateTeam}
+                                            className="w-full px-4 py-2 text-left text-sm font-semibold text-brand-yellow hover:bg-gray-700 transition-colors"
+                                        >
+                                            + Create New Team
+                                        </button>
+                                        {availableTeams.length > 0 && (
+                                            <>
+                                                <div className="border-t border-gray-700"></div>
+                                                {availableTeams.map((t) => (
+                                                    <button
+                                                        key={t.id}
+                                                        onClick={() => handleTeamSelect(t.id)}
+                                                        className="w-full px-4 py-2 text-left text-sm text-dark-text hover:bg-gray-700 transition-colors"
+                                                    >
+                                                        {t.name}
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 
@@ -465,9 +524,20 @@ export const TeamCard: React.FC<TeamCardProps> = ({
                                 <button onClick={handleCancelEdit} className="p-1"><XIcon className="w-4 h-4 text-red-500" /></button>
                             </div>
                         ) : (
-                            <span onClick={handleStartEdit} className="text-base font-semibold text-brand-yellow cursor-pointer hover:underline truncate">
-                                {team.name}
-                            </span>
+                            <>
+                                <span onClick={handleStartEdit} className="text-base font-semibold text-brand-yellow cursor-pointer hover:underline truncate">
+                                    {team.name}
+                                </span>
+                                <button
+                                    onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                                    className="p-1 hover:bg-dark-surface rounded transition-colors"
+                                    aria-label="Team selector"
+                                >
+                                    <svg className={`w-3 h-3 text-brand-yellow transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                            </>
                         )}
                     </div>
 

@@ -9,14 +9,18 @@ import { usePersonnel } from './features/personnel/hooks/usePersonnel.ts';
 import { usePersonnelFilters } from './features/personnel/hooks/usePersonnelFilters.ts';
 import { useTeams } from './features/teams/hooks/useTeams.ts';
 import { useTeamDragDrop } from './features/teams/hooks/useTeamDragDrop.ts';
+import { useWorkOrders } from './features/workOrders/hooks/useWorkOrders.ts';
 import { getDisciplineColor } from './features/personnel/helpers/personnelHelpers.ts';
 import type { Personnel } from './features/personnel/types';
 import type { Team } from './features/teams/types';
+import { checkAndMigrate } from './utils/migrateToWorkOrders.ts';
 
 // Lazy load modals for code splitting
 const AddPersonnelModal = lazy(() => import('./features/personnel/components/AddPersonnelModal.tsx'));
 const EditPersonnelModal = lazy(() => import('./features/personnel/components/EditPersonnelModal.tsx'));
 const CreateTeamModal = lazy(() => import('./features/teams/components/CreateTeamModal.tsx'));
+const CreateWorkOrderModal = lazy(() => import('./features/workOrders/components/CreateWorkOrderModal.tsx'));
+const WorkOrderCard = lazy(() => import('./features/workOrders/components/WorkOrderCard.tsx'));
 
 // Touch-friendly styles for mobile drag and drop
 const mobileStyles = `
@@ -48,12 +52,22 @@ const mobileStyles = `
 `;
 
 interface DeleteConfirmation {
-    type: 'person' | 'team';
+    type: 'person' | 'team' | 'workorder';
     id: number;
     name: string;
 }
 
 export default function App() {
+    // Run migration on first load
+    useEffect(() => {
+        const migrated = checkAndMigrate();
+        if (migrated) {
+            console.log('Data migrated to work order system');
+            // Reload to pick up migrated data
+            window.location.reload();
+        }
+    }, []);
+
     // Add mobile styles to document head
     useEffect(() => {
         const styleTag = document.createElement('style');
@@ -93,8 +107,20 @@ export default function App() {
         updateWorkOrder,
         updateStatus,
         updateDate,
+        updateTeamWorkOrder,
         deleteTeam,
     } = useTeams();
+
+    const {
+        workOrders,
+        createWorkOrder,
+        updateWorkOrderNumber,
+        updateOwner,
+        updateWorkOrderLocation,
+        updateWorkOrderDate,
+        updateWorkOrderStatus,
+        deleteWorkOrder,
+    } = useWorkOrders();
 
     const {
         searchTerm,
@@ -125,7 +151,10 @@ export default function App() {
     const [isEditPersonnelModalOpen, setEditPersonnelModalOpen] = useState(false);
     const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null);
     const [isCreateTeamModalOpen, setCreateTeamModalOpen] = useState(false);
+    const [isCreateWorkOrderModalOpen, setCreateWorkOrderModalOpen] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
+    const [currentWorkOrderId, setCurrentWorkOrderId] = useState<number | null>(null);
+    const [currentWorkOrderLocation, setCurrentWorkOrderLocation] = useState<string | null>(null);
 
     // Computed values
     const teams = useMemo<Team[]>(() => {
@@ -151,30 +180,35 @@ export default function App() {
         return map;
     }, [teamInfo]);
 
-    const filteredTeams = useMemo(() => {
+    const filteredWorkOrders = useMemo(() => {
         const now = new Date();
         const today = now.toISOString().split('T')[0];
         const yesterday = new Date(now.setDate(now.getDate() - 1)).toISOString().split('T')[0];
         const oneWeekStart = new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0];
         const twoWeeksStart = new Date(new Date().setDate(new Date().getDate() - 14)).toISOString().split('T')[0];
 
-        return teams.filter(team => {
+        return workOrders.filter(wo => {
             if (dateFilter === 'all') return true;
-            if (!team.date) return dateFilter === 'today'; // Show teams without date only in "today"
+            if (!wo.date) return dateFilter === 'today';
 
-            if (dateFilter === 'today') return team.date === today;
-            if (dateFilter === 'yesterday') return team.date === yesterday;
-            if (dateFilter === '1week') return team.date >= oneWeekStart;
-            if (dateFilter === '2weeks') return team.date >= twoWeeksStart;
+            if (dateFilter === 'today') return wo.date === today;
+            if (dateFilter === 'yesterday') return wo.date === yesterday;
+            if (dateFilter === '1week') return wo.date >= oneWeekStart;
+            if (dateFilter === '2weeks') return wo.date >= twoWeeksStart;
             return true;
         }).sort((a, b) => {
-            // Sort by date desc (newest first), then by name
+            // Sort by date desc (newest first), then by WO number
             const dateA = a.date || '';
             const dateB = b.date || '';
             if (dateB !== dateA) return dateB.localeCompare(dateA);
-            return a.name.localeCompare(b.name);
+            return a.workOrderNumber.localeCompare(b.workOrderNumber);
         });
-    }, [teams, dateFilter]);
+    }, [workOrders, dateFilter]);
+
+    // Get teams for a specific work order
+    const getTeamsForWorkOrder = useCallback((workOrderId: number) => {
+        return teams.filter(team => team.workOrderId === workOrderId);
+    }, [teams]);
 
     // Event handlers
     const handleStartEditPersonnel = useCallback((person: Personnel) => {
@@ -198,12 +232,65 @@ export default function App() {
         setDeleteConfirmation(null);
     }, [personnel, assignToTeam, deleteTeam]);
 
-    const handleCreateTeam = useCallback((name: string, memberIds: number[]) => {
+    const handleCreateTeam = useCallback((name: string, memberIds: number[], date: string, location: string) => {
         const newTeamId = createTeam(name);
         memberIds.forEach(memberId => {
             assignToTeam(memberId, newTeamId);
         });
-    }, [createTeam, assignToTeam]);
+        // Set date and location if provided
+        if (date) {
+            updateDate(newTeamId, date);
+        }
+        if (location) {
+            updateLocation(newTeamId, location);
+        }
+    }, [createTeam, assignToTeam, updateDate, updateLocation]);
+
+    const handleSwitchTeam = useCallback((currentTeamId: number, selectedTeamId: number) => {
+        // Move all members from current team to selected team
+        personnel.forEach(p => {
+            if (p.teamId === currentTeamId) {
+                assignToTeam(p.id, selectedTeamId);
+            }
+        });
+        // Delete the current team
+        deleteTeam(currentTeamId);
+    }, [personnel, assignToTeam, deleteTeam]);
+
+    const handleCreateTeamFromCard = useCallback((currentTeamId: number) => {
+        // Open the create team modal
+        setCreateTeamModalOpen(true);
+    }, []);
+
+    const handleCreateWorkOrder = useCallback((workOrderNumber: string, owner: string, location: string, date: string, createTeam: boolean) => {
+        const newWorkOrderId = createWorkOrder(workOrderNumber, owner, location, date);
+        if (createTeam) {
+            setCurrentWorkOrderId(newWorkOrderId);
+            setCreateTeamModalOpen(true);
+        }
+    }, [createWorkOrder]);
+
+    const handleCreateTeamForWorkOrder = useCallback((workOrderId: number) => {
+        setCurrentWorkOrderId(workOrderId);
+        // Find the work order and get its location
+        const workOrder = workOrders.find(wo => wo.id === workOrderId);
+        if (workOrder && workOrder.location) {
+            setCurrentWorkOrderLocation(workOrder.location);
+        }
+        setCreateTeamModalOpen(true);
+    }, [workOrders]);
+
+    const handleDeleteWorkOrder = useCallback((workOrderId: number) => {
+        // Unassign all teams from this work order
+        teamInfo.forEach(t => {
+            if (t.workOrderId === workOrderId) {
+                // Remove workOrderId from team
+                updateTeamWorkOrder(t.id, null);
+            }
+        });
+        deleteWorkOrder(workOrderId);
+        setDeleteConfirmation(null);
+    }, [teamInfo, updateTeamWorkOrder, deleteWorkOrder]);
 
     return (
         <div className="bg-dark-surface min-h-screen font-sans text-dark-text">
@@ -230,19 +317,25 @@ export default function App() {
                     </div>
 
                     {activeView === 'teams' && (
-                        <div className="mb-4">
+                        <div className="mb-4 space-y-3">
                             <label className="block text-xs text-gray-400 mb-2">Filter by Date:</label>
                             <select
                                 value={dateFilter}
                                 onChange={(e) => setDateFilter(e.target.value as any)}
                                 className="w-full bg-dark-card border border-gray-600 rounded-lg py-3 px-4 text-dark-text focus:outline-none focus:ring-2 focus:ring-brand-yellow min-h-[48px]"
                             >
-                                <option value="today">Today ({filteredTeams.length})</option>
+                                <option value="today">Today ({filteredWorkOrders.length})</option>
                                 <option value="yesterday">Yesterday</option>
                                 <option value="1week">1 Week</option>
                                 <option value="2weeks">2 Weeks</option>
                                 <option value="all">All Dates</option>
                             </select>
+                            <button
+                                onClick={() => setCreateWorkOrderModalOpen(true)}
+                                className="w-full bg-brand-yellow text-black font-bold py-3 px-6 rounded-md hover:bg-yellow-400 active:bg-yellow-500 transition-colors min-h-[48px]"
+                            >
+                                + Create Work Order
+                            </button>
                         </div>
                     )}
 
@@ -326,67 +419,32 @@ export default function App() {
                         })}
                         {activeView === 'teams' && (
                             <>
-                                {filteredTeams.map(team => (
-                                    <TeamCard
-                                        key={team.id}
-                                        team={team}
-                                        personnel={personnel}
-                                        currentDate={getCurrentDate()}
-                                        onUpdateName={updateTeamName}
-                                        onDelete={(id, name) => setDeleteConfirmation({ type: 'team', id, name })}
-                                        onLocationChange={updateLocation}
-                                        onWorkOrderChange={updateWorkOrder}
-                                        onStatusChange={updateStatus}
-                                        onAssignPerson={(teamId, personId) => assignToTeam(personId, teamId)}
-                                        onRemovePerson={(teamId, personId) => assignToTeam(personId, null)}
-                                    />
+                                {filteredWorkOrders.map(workOrder => (
+                                    <Suspense key={workOrder.id} fallback={<div className="bg-dark-card rounded-lg shadow-md p-4 animate-pulse"><div className="h-8 bg-gray-700 rounded"></div></div>}>
+                                        <WorkOrderCard
+                                            workOrder={workOrder}
+                                            teams={getTeamsForWorkOrder(workOrder.id)}
+                                            personnel={personnel}
+                                            allTeams={teams}
+                                            currentDate={getCurrentDate()}
+                                            onUpdateWorkOrderNumber={updateWorkOrderNumber}
+                                            onUpdateOwner={updateOwner}
+                                            onUpdateLocation={updateWorkOrderLocation}
+                                            onUpdateStatus={updateWorkOrderStatus}
+                                            onDelete={(id, name) => setDeleteConfirmation({ type: 'workorder', id, name })}
+                                            onCreateTeam={handleCreateTeamForWorkOrder}
+                                            onUpdateTeamName={updateTeamName}
+                                            onDeleteTeam={(id, name) => setDeleteConfirmation({ type: 'team', id, name })}
+                                            onLocationChange={updateLocation}
+                                            onWorkOrderChange={updateWorkOrder}
+                                            onStatusChange={updateStatus}
+                                            onAssignPerson={(teamId, personId) => assignToTeam(personId, teamId)}
+                                            onRemovePerson={(teamId, personId) => assignToTeam(personId, null)}
+                                            onSwitchTeam={handleSwitchTeam}
+                                            onCreateTeamFromCard={handleCreateTeamFromCard}
+                                        />
+                                    </Suspense>
                                 ))}
-                                <div
-                                    onDrop={(e) => {
-                                        e.preventDefault();
-                                        const personId = parseInt(e.dataTransfer.getData('personId'), 10);
-                                        if (personId) {
-                                            assignToTeam(personId, null);
-                                        }
-                                        handleDragEnd();
-                                    }}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDragEnter={() => handleDragEnter('unassigned')}
-                                    onDragLeave={handleDragLeave}
-                                    className={`bg-dark-card p-4 rounded-lg shadow-md transition-all duration-200 ${dragOverTeamId === 'unassigned' ? 'drop-zone-active' : ''}`}
-                                >
-                                    <h3 className="font-bold text-xl text-dark-text-secondary mb-3">Unassigned</h3>
-                                    <div className="space-y-2 min-h-[2rem]">
-                                        {unassignedPersonnel.length > 0 ? (
-                                            <div className="space-y-2">
-                                                {unassignedPersonnel.map((member) => (
-                                                    <div
-                                                        key={member.id}
-                                                        draggable
-                                                        onDragStart={(e) => {
-                                                            e.dataTransfer.effectAllowed = 'move';
-                                                            e.dataTransfer.setData('personId', member.id.toString());
-                                                            handleDragStart(member.id);
-                                                        }}
-                                                        onDragEnd={handleDragEnd}
-                                                        className={`flex justify-between items-center text-dark-text bg-dark-surface p-2 rounded cursor-grab active:cursor-grabbing hover:bg-dark-card transition-colors ${
-                                                            draggingPersonId === member.id ? 'opacity-40 dragging-personnel' : 'opacity-100'
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-center">
-                                                            <div className="w-1 h-12 bg-gray-500 rounded-r mr-2 opacity-60"
-                                                                 style={{ opacity: draggingPersonId === member.id ? '0.8' : '0.4' }} />
-                                                            <HelmetIndicator color={member.helmetColor} />
-                                                            <span className="truncate ml-2">{member.name}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-center text-sm text-dark-text-secondary py-2">All personnel are assigned.</p>
-                                        )}
-                                    </div>
-                                </div>
                             </>
                         )}
                         {activeView === 'personnel' && filteredPersonnel.length === 0 && (
@@ -426,9 +484,30 @@ export default function App() {
                 {isCreateTeamModalOpen && (
                     <CreateTeamModal
                         isOpen={isCreateTeamModalOpen}
-                        onClose={() => setCreateTeamModalOpen(false)}
+                        onClose={() => {
+                            setCreateTeamModalOpen(false);
+                            setCurrentWorkOrderId(null);
+                            setCurrentWorkOrderLocation(null);
+                        }}
                         unassignedPersonnel={unassignedPersonnel}
-                        onCreateTeam={handleCreateTeam}
+                        onCreateTeam={(name, memberIds, date, location) => {
+                            const newTeamId = createTeam(name);
+                            memberIds.forEach(memberId => {
+                                assignToTeam(memberId, newTeamId);
+                            });
+                            // Assign team to work order if creating from work order context
+                            if (currentWorkOrderId !== null) {
+                                updateTeamWorkOrder(newTeamId, currentWorkOrderId);
+                            }
+                        }}
+                        initialLocation={currentWorkOrderLocation || ''}
+                    />
+                )}
+                {isCreateWorkOrderModalOpen && (
+                    <CreateWorkOrderModal
+                        isOpen={isCreateWorkOrderModalOpen}
+                        onClose={() => setCreateWorkOrderModalOpen(false)}
+                        onCreateWorkOrder={handleCreateWorkOrder}
                     />
                 )}
             </Suspense>
@@ -439,8 +518,9 @@ export default function App() {
                     <div className="bg-dark-card p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
                         <h3 className="text-xl font-bold text-dark-text mb-4">Confirm Delete</h3>
                         <p className="text-dark-text-secondary mb-6">
-                            Are you sure you want to delete {deleteConfirmation.type === 'person' ? 'person' : 'team'} "<span className="font-semibold text-dark-text">{deleteConfirmation.name}</span>"?
+                            Are you sure you want to delete {deleteConfirmation.type === 'workorder' ? 'work order' : deleteConfirmation.type} "<span className="font-semibold text-dark-text">{deleteConfirmation.name}</span>"?
                             {deleteConfirmation.type === 'team' && <span className="block mt-2">All team members will be unassigned.</span>}
+                            {deleteConfirmation.type === 'workorder' && <span className="block mt-2">All teams will be unassigned from this work order.</span>}
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
@@ -453,8 +533,10 @@ export default function App() {
                                 onClick={() => {
                                     if (deleteConfirmation.type === 'person') {
                                         handleDeletePersonnel(deleteConfirmation.id);
-                                    } else {
+                                    } else if (deleteConfirmation.type === 'team') {
                                         handleDeleteTeam(deleteConfirmation.id);
+                                    } else {
+                                        handleDeleteWorkOrder(deleteConfirmation.id);
                                     }
                                 }}
                                 className="px-6 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 active:bg-red-800 transition-colors min-h-[48px]"

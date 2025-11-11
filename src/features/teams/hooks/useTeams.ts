@@ -63,6 +63,12 @@ export const useTeams = () => {
         ));
     }, []);
 
+    const updateTeamWorkOrder = useCallback((teamId: number, workOrderId: number | null) => {
+        setTeamInfo(prev => prev.map(t =>
+            t.id === teamId ? { ...t, workOrderId } : t
+        ));
+    }, []);
+
     const deleteTeam = useCallback((teamId: number) => {
         setTeamInfo(prev => teamsApi.delete(teamId, prev));
     }, []);
@@ -78,6 +84,7 @@ export const useTeams = () => {
         updateWorkOrder,
         updateStatus,
         updateDate,
+        updateTeamWorkOrder,
         deleteTeam,
     };
 };
